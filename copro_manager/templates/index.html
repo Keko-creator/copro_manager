@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Copropriétés{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- ==================== STATISTIQUES ==================== -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-chart-pie me-2"></i>Statistiques Globales
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Total Logements -->
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Total Logements</h6>
+                                    <h2 class="text-primary">{{ stats.total_logements }}</h2>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Copropriétés Actives/Inactives -->
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-success">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Copropriétés Actives</h6>
+                                    <h2 class="text-success">{{ stats.total_active }}</h2>
+                                    <small class="text-danger">Inactives: {{ stats.total_inactive }}</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Répartition par Gestionnaire -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="fas fa-users me-2"></i>Par Gestionnaire</h6>
+                                    <div class="row">
+                                        {% for gestionnaire, data in stats.gestionnaires.items() %}
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span><strong>{{ gestionnaire }}</strong></span>
+                                                <span>{{ data.count }} ({{ data.percentage }}%)</span>
+                                            </div>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar {% if gestionnaire == 'AJ' %}bg-warning{% else %}bg-info{% endif %}"
+                                                     style="width: {{ data.percentage }}%"></div>
+                                            </div>
+                                            <small class="text-muted">Logements: {{ data.logements }}</small>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <!-- Répartition par Période Comptable -->
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="fas fa-calendar-alt me-2"></i>Par Période Comptable</h6>
+                                    <div class="row">
+                                        {% for periode, data in stats.periodes.items() %}
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span><strong>{{ periode }}</strong></span>
+                                                <span>{{ data.count }} ({{ data.percentage }}%)</span>
+                                            </div>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar bg-secondary" style="width: {{ data.percentage }}%"></div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== BARRE DE RECHERCHE AVANCÉE ==================== -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="fas fa-search me-2"></i>Recherche Avancée
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('search') }}" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="query" class="form-control" placeholder="Rechercher..."
+                                   value="{{ search_query if search_query else '' }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="search_type" class="form-select">
+                                <option value="copropriete" {% if search_type == 'copropriete' %}selected{% endif %}>Par Copropriété</option>
+                                <option value="coproprietaire" {% if search_type == 'coproprietaire' %}selected{% endif %}>Par Copropriétaire</option>
+                                <option value="contrat" {% if search_type == 'contrat' %}selected{% endif %}>Par Type de Contrat</option>
+                                <option value="fournisseur" {% if search_type == 'fournisseur' %}selected{% endif %}>Par Fournisseur</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-2"></i>Rechercher
+                            </button>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <a href="{{ url_for('new_copropriete') }}" class="btn btn-success">
+                                <i class="fas fa-plus me-2"></i>Ajouter une Copropriété
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== LISTE DES COPROPRIÉTÉS ==================== -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-building me-2"></i>Liste des Copropriétés</h5>
+                    <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-sync-alt me-1"></i>Réinitialiser
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>N°</th>
+                                    <th>Adresse</th>
+                                    <th>Ville</th>
+                                    <th>Gestionnaire</th>
+                                    <th>Logements</th>
+                                    <th>Période</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for copro in coproprietes %}
+                                <tr class="{% if not copro.est_active %}table-danger text-decoration-line-through{% endif %}">
+                                    <td>
+                                        <a href="{{ url_for('view_copropriete', copropriete_id=copro.id) }}" class="text-decoration-none">
+                                            #{{ copro.numero }}
+                                        </a>
+                                        {% if not copro.est_active %}
+                                            <span class="badge bg-danger ms-2">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ copro.adresse if copro.adresse else 'N/A' }}</td>
+                                    <td>{{ copro.ville if copro.ville else 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge {% if copro.gestionnaire == 'AJ' %}bg-warning{% elif copro.gestionnaire == 'KS' %}bg-info{% else %}bg-secondary{% endif %}">
+                                            {{ copro.gestionnaire if copro.gestionnaire else 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td>{{ copro.nombre_logements if copro.nombre_logements else 0 }}</td>
+                                    <td>{{ copro.exercice_comptable if copro.exercice_comptable else 'N/A' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('view_copropriete', copropriete_id=copro.id) }}" class="btn btn-sm btn-outline-primary" title="Voir">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if copro.est_active %}
+                                            <form method="POST" action="{{ url_for('toggle_active', copropriete_id=copro.id) }}" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir Désactiver la copropriété #{{ copro.numero }} ?')">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Désactiver">
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="{{ url_for('toggle_active', copropriete_id=copro.id) }}" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir Réactiver la copropriété #{{ copro.numero }} ?')">
+                                                <button type="submit" class="btn btn-sm btn-outline-success" title="Réactiver">
+                                                    <i class="fas fa-redo"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        Affichage de {{ coproprietes|length }} copropriété(s)
+                        {% if search_query %}
+                            | Résultat de la recherche: "{{ search_query }}"
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

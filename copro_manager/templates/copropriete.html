@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Copropriété {{ copropriete.numero }} - {{ copropriete.nom }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- En-tête -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-0"><i class="fas fa-building"></i> Copropriété N°{{ copropriete.numero }}</h2>
+                <p class="mb-0 mt-2">{{ copropriete.nom }}</p>
+            </div>
+            <a href="{{ url_for('index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Retour</a>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Adresse:</strong> {{ copropriete.adresse }}</p>
+                    <p><strong>Ville:</strong> {{ copropriete.ville }}</p>
+                    <p><strong>Immatriculation:</strong> {{ copropriete.immatriculation or 'Non concerné' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Programme Néolia:</strong> {{ copropriete.programme_neolia }}</p>
+                    <p><strong>Logements:</strong> {{ copropriete.nombre_logements }}</p>
+                    <p><strong>Exercice:</strong> {{ copropriete.exercice_comptable }}</p>
+                    <p><strong>Gestionnaire:</strong>
+                        <span class="badge bg-{{ 'primary' if copropriete.gestionnaire == 'AJ' else 'success' }}">
+                            {{ copropriete.gestionnaire }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onglets -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#ficheImmeuble">Fiche Immeuble</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ficheTechnique">Contrats</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#coproprietaires">Copropriétaires</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ag">AG</button></li>
+    </ul>
+
+    <!-- Contenu onglets -->
+    <div class="tab-content">
+        <!-- FICHE IMMEUBLE -->
+        <div class="tab-pane fade show active" id="ficheImmeuble">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white"><h4><i class="fas fa-file-alt"></i> Fiche Immeuble</h4></div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('save_fiche_immeuble') }}">
+                        <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>Date construction</label>
+                                <input type="date" class="form-control" name="date_construction"
+                                       value="{{ fiche_immeuble.date_construction.strftime('%Y-%m-%d') if fiche_immeuble and fiche_immeuble.date_construction else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label>Date arrêté compte</label>
+                                <input type="date" class="form-control" name="date_arrete_compte"
+                                       value="{{ fiche_immeuble.date_arrete_compte.strftime('%Y-%m-%d') if fiche_immeuble and fiche_immeuble.date_arrete_compte else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>Référence Néolia</label>
+                                <input type="text" class="form-control" name="reference_neolia"
+                                       value="{{ fiche_immeuble.reference_neolia if fiche_immeuble else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label>Désignation</label>
+                                <input type="text" class="form-control" name="designation_immeuble"
+                                       value="{{ fiche_immeuble.designation_immeuble if fiche_immeuble else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label>Commercial HLM</label>
+                                <input type="text" class="form-control" name="nom_commercial_vente_hlm"
+                                       value="{{ fiche_immeuble.nom_commercial_vente_hlm if fiche_immeuble else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Responsable secteur</label>
+                                <input type="text" class="form-control" name="nom_responsable_secteur"
+                                       value="{{ fiche_immeuble.nom_responsable_secteur if fiche_immeuble else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Notaire</label>
+                                <input type="text" class="form-control" name="nom_notaire"
+                                       value="{{ fiche_immeuble.nom_notaire if fiche_immeuble else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>IBAN</label>
+                                <input type="text" class="form-control" name="iban"
+                                       value="{{ fiche_immeuble.iban if fiche_immeuble else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label>N° ICS</label>
+                                <input type="text" class="form-control" name="ics"
+                                       value="{{ fiche_immeuble.ics if fiche_immeuble else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>Lien dossier</label>
+                                <input type="url" class="form-control" name="lien_dossier"
+                                       value="{{ fiche_immeuble.lien_dossier if fiche_immeuble else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label>Lien budget</label>
+                                <input type="url" class="form-control" name="lien_budget"
+                                       value="{{ fiche_immeuble.lien_budget if fiche_immeuble else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Sauvegarder</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTRATS -->
+        <div class="tab-pane fade" id="ficheTechnique">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h4><i class="fas fa-cogs"></i> Contrats</h4>
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addContratModal">
+                        <i class="fas fa-plus"></i> Ajouter
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Nature</th>
+                                    <th>Fournisseur</th>
+                                    <th>Dates</th>
+                                    <th>Montant</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in contrats %}
+                                <tr>
+                                    <td>{{ c.contrat.type_contrat }}</td>
+                                    <td>{{ c.contrat.nature }}</td>
+                                    <td>{{ c.contrat.fournisseur }}</td>
+                                    <td>
+                                        {{ c.contrat.date_debut.strftime('%d/%m/%Y') if c.contrat.date_debut else '-' }}
+                                        {% if c.contrat.date_fin %}
+                                            au {{ c.contrat.date_fin.strftime('%d/%m/%Y') }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ "%.2f"|format(c.contrat.montant_annuel) }} €</td>
+                                    <td>
+                                        <button class="btn btn-xs btn-warning" data-bs-toggle="modal" data-bs-target="#editContratModal-{{ c.contrat.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="{{ url_for('delete_contrat', contrat_id=c.contrat.id) }}" style="display:inline">
+                                            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Supprimer?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COPROPRIETAIRES -->
+        <div class="tab-pane fade" id="coproprietaires">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h4><i class="fas fa-users"></i> Copropriétaires</h4>
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addCoproprietaireModal">
+                        <i class="fas fa-plus"></i> Ajouter
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Lot</th>
+                                    <th>Nom</th>
+                                    <th>Nature</th>
+                                    <th>Email</th>
+                                    <th>Tél</th>
+                                    <th>Rés. princ.</th>
+                                    <th>Loué</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cp in coproprietaires %}
+                                <tr>
+                                    <td>{{ cp.numero_lot }}</td>
+                                    <td>{{ cp.nom }} {{ cp.prenom }}</td>
+                                    <td>{{ cp.nature_lot }}</td>
+                                    <td>{{ cp.email or '-' }}</td>
+                                    <td>{{ cp.telephone or '-' }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if cp.est_residence_principale else 'secondary' }}">
+                                            {{ 'Oui' if cp.est_residence_principale else 'Non' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'warning' if cp.est_loue else 'secondary' }}">
+                                            {{ 'Oui' if cp.est_loue else 'Non' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-xs btn-warning" data-bs-toggle="modal" data-bs-target="#editCoproprietaireModal-{{ cp.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="{{ url_for('delete_coproprietaire', copro_id=cp.id) }}" style="display:inline">
+                                            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Supprimer?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ASSEMBLEES GENERALES -->
+        <div class="tab-pane fade" id="ag">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white"><h4><i class="fas fa-calendar-alt"></i> Assemblées Générales</h4></div>
+                <div class="card-body">
+                    <h5>AG Passées
+                        <button class="btn btn-success btn-sm float-end" data-bs-toggle="modal" data-bs-target="#addAGModal">
+                            <i class="fas fa-plus"></i> Ajouter
+                        </button>
+                    </h5>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Horaires</th>
+                                    <th>Lieu</th>
+                                    <th>PV</th>
+                                    <th>Comptes OK</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for a in assemblees %}
+                                <tr>
+                                    <td>{{ a.ag.date.strftime('%d/%m/%Y') if a.ag.date else '-' }}</td>
+                                    <td>{{ a.ag.horaire_debut }} - {{ a.ag.horaire_fin }}</td>
+                                    <td>{{ a.ag.lieu }}</td>
+                                    <td>
+                                        {% if a.ag.lien_pv %}
+                                            <a href="{{ a.ag.lien_pv }}" target="_blank" class="btn btn-xs btn-info">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if a.ag.comptes_approuves else 'danger' }}">
+                                            {{ 'Oui' if a.ag.comptes_approuves else 'Non' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-xs btn-warning" data-bs-toggle="modal" data-bs-target="#editAGModal-{{ a.ag.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="{{ url_for('delete_ag', ag_id=a.ag.id) }}" style="display:inline">
+                                            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Supprimer?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h5>Résolutions futures
+                        <button class="btn btn-success btn-sm float-end" data-bs-toggle="modal" data-bs-target="#addResolutionModal">
+                            <i class="fas fa-plus"></i> Ajouter
+                        </button>
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Titre</th>
+                                    <th>Projet</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in resolutions %}
+                                <tr>
+                                    <td>{{ r.titre }}</td>
+                                    <td>{{ r.projet }}</td>
+                                    <td>
+                                        <button class="btn btn-xs btn-warning" data-bs-toggle="modal" data-bs-target="#editResolutionModal-{{ r.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="{{ url_for('delete_resolution', resolution_id=r.id) }}" style="display:inline">
+                                            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Supprimer?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS -->
+{% include 'modals.html' %}
+{% endblock %}
