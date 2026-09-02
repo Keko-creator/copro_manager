@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil - Copro Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="display-4"><i class="fas fa-search"></i> Rechercher une Copropriété</h1>
+        <form method="GET" action="{{ url_for('index') }}" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="q" value="{{ search_query }}" placeholder="Rechercher...">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" name="type">
+                    <option value="tout" {% if search_type == 'tout' %}selected{% endif %}>Tous les champs</option>
+                    <option value="ville" {% if search_type == 'ville' %}selected{% endif %}>Ville</option>
+                    <option value="gestionnaire" {% if search_type == 'gestionnaire' %}selected{% endif %}>Gestionnaire</option>
+                    <option value="immatriculation" {% if search_type == 'immatriculation' %}selected{% endif %}>Immatriculation</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Rechercher
+                </button>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('new_copropriete') }}" class="btn btn-success w-100">
+                    <i class="fas fa-plus"></i> Nouvelle Copropriété
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiques -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2><i class="fas fa-chart-bar"></i> Statistiques</h2>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-body">
+                        <h3 class="card-title"><i class="fas fa-building"></i> Total Copropriétés</h3>
+                        <p class="card-text h2">{{ stats.total_active + stats.total_inactive }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body">
+                        <h3 class="card-title"><i class="fas fa-check-circle"></i> Actives</h3>
+                        <p class="card-text h2">{{ stats.total_active }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning mb-3">
+                    <div class="card-body">
+                        <h3 class="card-title"><i class="fas fa-pause-circle"></i> Inactives</h3>
+                        <p class="card-text h2">{{ stats.total_inactive }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info mb-3">
+                    <div class="card-body">
+                        <h3 class="card-title"><i class="fas fa-home"></i> Total Logements</h3>
+                        <p class="card-text h2">{{ stats.total_logements }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if stats.gestionnaires %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3><i class="fas fa-users"></i> Répartition par Gestionnaire</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Gestionnaire</th>
+                                        <th>Nombre</th>
+                                        <th>Logements</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for gestionnaire, data in stats.gestionnaires.items() %}
+                                    <tr>
+                                        <td>{{ gestionnaire }}</td>
+                                        <td>{{ data.count }}</td>
+                                        <td>{{ data.logements }}</td>
+                                        <td>{{ data.percentage }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3><i class="fas fa-calendar"></i> Répartition par Exercice Comptable</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Exercice</th>
+                                        <th>Nombre</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for periode, data in stats.periodes.items() %}
+                                    <tr>
+                                        <td>{{ periode }}</td>
+                                        <td>{{ data.count }}</td>
+                                        <td>{{ data.percentage }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Liste des copropriétés -->
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-list"></i> Liste des Copropriétés</h2>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>N°</th>
+                        <th>Nom</th>
+                        <th>Adresse</th>
+                        <th>Ville</th>
+                        <th>Gestionnaire</th>
+                        <th>Logements</th>
+                        <th>Immatriculation</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for copropriete in coproprietes %}
+                    <tr>
+                        <td>{{ copropriete.numero }}</td>
+                        <td><a href="{{ url_for('copropriete', copro_id=copropriete.id) }}">{{ copropriete.nom }}</a></td>
+                        <td>{{ copropriete.adresse }}</td>
+                        <td>{{ copropriete.ville }}</td>
+                        <td>{{ copropriete.gestionnaire or 'N/C' }}</td>
+                        <td>{{ copropriete.nombre_logements or 0 }}</td>
+                        <td>{{ copropriete.immatriculation or 'N/C' }}</td>
+                        <td>
+                            {% if copropriete.est_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('copropriete', copro_id=copropriete.id) }}" class="btn btn-info btn-sm">
+                                <i class="fas fa-eye"></i> Voir
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

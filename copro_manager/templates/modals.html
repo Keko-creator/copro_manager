@@ -1,0 +1,50 @@
+<!-- Modal pour ajouter un contrat -->
+<div class="modal fade" id="addContratModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('save_contrat') }}">
+                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-file-contract"></i> Ajouter un Contrat</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label>Type de contrat :</label>
+                            <input type="text" class="form-control" name="type_contrat" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Nature :</label>
+                            <input type="text" class="form-control" name="nature" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label>Fournisseur :</label>
+                            <input type="text" class="form-control" name="fournisseur" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Montant annuel (€) :</label>
+                            <input type="number" step="0.01" class="form-control" name="montant_annuel">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label>Date début (JJ/MM/AAAA) :</label>
+                            <input type="text" class="form-control" name="date_debut" placeholder="JJ/MM/AAAA">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Date fin (JJ/MM/AAAA) :</label>
+                            <input type="text" class="form-control" name="date_fin" placeholder="JJ/MM/AAAA">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
