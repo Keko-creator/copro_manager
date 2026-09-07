@@ -1,0 +1,81 @@
+{% extends "base.html" %}  <!-- Si tu as un template de base, sinon retire cette ligne -->
+
+{% block content %}
+<h2>Modifier la copropriété #{{ copropriete.numero }}</h2>
+
+<form method="POST" action="{{ url_for('edit_copropriete', copro_id=copropriete.id) }}">
+    <!-- Numéro -->
+    <div class="form-group">
+        <label for="numero">Numéro :</label>
+        <input type="number" id="numero" name="numero" class="form-control" value="{{ copropriete.numero }}" required>
+    </div>
+
+    <!-- Nom -->
+    <div class="form-group">
+        <label for="nom">Nom :</label>
+        <input type="text" id="nom" name="nom" class="form-control" value="{{ copropriete.nom }}" required>
+    </div>
+
+    <!-- Date de mise en copropriété -->
+    <div class="form-group">
+        <label for="date_mise_copropriete">Date de mise en copropriété (JJ/MM/AAAA) :</label>
+        <input type="text" id="date_mise_copropriete" name="date_mise_copropriete" class="form-control"
+               value="{{ copropriete.date_mise_copropriete.strftime('%d/%m/%Y') if copropriete.date_mise_copropriete else '' }}" placeholder="JJ/MM/AAAA">
+    </div>
+
+    <!-- Programme Neolia -->
+    <div class="form-group">
+        <label for="programme_neolia">Programme Neolia :</label>
+        <input type="text" id="programme_neolia" name="programme_neolia" class="form-control" value="{{ copropriete.programme_neolia or '' }}">
+    </div>
+
+    <!-- Adresse -->
+    <div class="form-group">
+        <label for="adresse">Adresse :</label>
+        <input type="text" id="adresse" name="adresse" class="form-control" value="{{ copropriete.adresse or '' }}">
+    </div>
+
+    <!-- Ville -->
+    <div class="form-group">
+        <label for="ville">Ville :</label>
+        <input type="text" id="ville" name="ville" class="form-control" value="{{ copropriete.ville or '' }}">
+    </div>
+
+    <!-- Immatriculation -->
+    <div class="form-group">
+        <label for="immatriculation">Immatriculation :</label>
+        <input type="text" id="immatriculation" name="immatriculation" class="form-control" value="{{ copropriete.immatriculation or '' }}">
+    </div>
+
+    <!-- Nombre de logements -->
+    <div class="form-group">
+        <label for="nombre_logements">Nombre de logements :</label>
+        <input type="number" id="nombre_logements" name="nombre_logements" class="form-control" value="{{ copropriete.nombre_logements or 0 }}">
+    </div>
+
+    <!-- Exercice comptable -->
+    <div class="form-group">
+        <label for="exercice_comptable">Exercice comptable :</label>
+        <input type="text" id="exercice_comptable" name="exercice_comptable" class="form-control" value="{{ copropriete.exercice_comptable or '' }}" placeholder="Ex: 31-déc, 30-juin">
+    </div>
+
+    <!-- Gestionnaire -->
+    <div class="form-group">
+        <label for="gestionnaire">Gestionnaire :</label>
+        <input type="text" id="gestionnaire" name="gestionnaire" class="form-control" value="{{ copropriete.gestionnaire or '' }}">
+    </div>
+
+    <!-- Statut (active/inactive) -->
+    <div class="form-group form-check">
+        <input type="checkbox" id="est_active" name="est_active" class="form-check-input"
+               {% if copropriete.est_active %}checked{% endif %}>
+        <label for="est_active" class="form-check-label">Copropriété active</label>
+    </div>
+
+    <!-- Boutons -->
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{{ url_for('copropriete', copro_id=copropriete.id) }}" class="btn btn-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

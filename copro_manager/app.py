@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
 from sqlalchemy.orm import joinedload
+from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute COPROPRIETES_DATA
 
 # ========== CONFIGURATION ==========
 app = Flask(__name__)
@@ -11,6 +12,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///copro_manager.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 db = SQLAlchemy(app)
+
+# ===== CONTEXT PROCESSOR (pour rendre Civilite accessible dans les templates) =====
+@app.context_processor
+def inject_models():
+    return dict(Civilite=Civilite)
 
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -87,6 +93,41 @@ class Coproprietaire(db.Model):
     date_envoi_mail_accueil = db.Column(db.Date)
     lien_espace_client = db.Column(db.String(500))
 
+    locataire_nom = db.Column(db.String(100))
+    locataire_prenom = db.Column(db.String(100))
+    locataire_email = db.Column(db.String(200))
+    locataire_telephone = db.Column(db.String(50))
+
+    lots = db.relationship('LotCoproprietaire', backref='coproprietaire', lazy=True, cascade="all, delete-orphan")
+    emails = db.relationship('EmailCoproprietaire', backref='coproprietaire', lazy=True, cascade="all, delete-orphan")
+    telephones = db.relationship('TelephoneCoproprietaire', backref='coproprietaire', lazy=True, cascade="all, delete-orphan")
+
+class Civilite(db.Model):
+    __tablename__ = 'civilites'
+    id = db.Column(db.Integer, primary_key=True)
+    libelle = db.Column(db.String(20), unique=True, nullable=False)
+
+class LotCoproprietaire(db.Model):
+    __tablename__ = 'lots_coproprietaires'
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(50), nullable=False)
+    nature = db.Column(db.String(100))
+    coproprietaire_id = db.Column(db.Integer, db.ForeignKey('coproprietaire.id'), nullable=False)
+
+class EmailCoproprietaire(db.Model):
+    __tablename__ = 'emails_coproprietaires'
+    id = db.Column(db.Integer, primary_key=True)
+    value = db.Column(db.String(200), nullable=False)
+    principal = db.Column(db.Boolean, default=False)
+    coproprietaire_id = db.Column(db.Integer, db.ForeignKey('coproprietaire.id'), nullable=False)
+
+class TelephoneCoproprietaire(db.Model):
+    __tablename__ = 'telephones_coproprietaires'
+    id = db.Column(db.Integer, primary_key=True)
+    value = db.Column(db.String(50), nullable=False)
+    principal = db.Column(db.Boolean, default=False)
+    coproprietaire_id = db.Column(db.Integer, db.ForeignKey('coproprietaire.id'), nullable=False)
+
 class AssembleeGenerale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
@@ -147,20 +188,6 @@ def parse_date(date_str):
         return datetime.strptime(date_str, '%Y-%m-%d').date()
     except (ValueError, TypeError):
         return None
-
-# ========== INITIAL DATA (73 copropriétés) ==========
-COPROPRIETES_DATA = [
-    {"numero": 1, "date_mise_copropriete": "06/05/2021", "programme_neolia": "154 / 811", "adresse": "1 et 2 Place de la Mairie", "ville": "FESCHES LE CHATEL", "immatriculation": "AG8-500-167", "nombre_logements": 32, "exercice_comptable": "31-déc", "gestionnaire": "AJ", "est_active": True},
-    {"numero": 2, "date_mise_copropriete": "01/04/2021", "programme_neolia": "186 / 851", "adresse": "13 et 15 rue Lamarck", "ville": "MONTBELIARD", "immatriculation": "AG7-425-283", "nombre_logements": 36, "exercice_comptable": "31-déc", "gestionnaire": "KS", "est_active": True},
-    {"numero": 3, "date_mise_copropriete": "21/04/2022", "programme_neolia": "200", "adresse": "1 à 17 rue des Chintres", "ville": "VALENTIGNEY", "immatriculation": "AG7-857-253", "nombre_logements": 33, "exercice_comptable": "31-déc", "gestionnaire": "KS", "est_active": True},
-    {"numero": 4, "date_mise_copropriete": "27/01/2021", "programme_neolia": "401", "adresse": "ASL Rue et Place du Moulin", "ville": "FOUSSEMAGNE", "immatriculation": "Pas concerné", "nombre_logements": 12, "exercice_comptable": "31-déc", "gestionnaire": "AJ", "est_active": True},
-    {"numero": 5, "date_mise_copropriete": "30/06/2021", "programme_neolia": "144", "adresse": "1 à 19 rue des Vergers", "ville": "BART", "immatriculation": "AG9-668-799", "nombre_logements": 10, "exercice_comptable": "31-déc", "gestionnaire": "AJ", "est_active": True},
-    {"numero": 6, "date_mise_copropriete": "18/08/2021", "programme_neolia": "115 ens 2", "adresse": "9 rue des Jardins", "ville": "PONT DE ROIDE", "immatriculation": "AG9-782-392", "nombre_logements": 6, "exercice_comptable": "31-déc", "gestionnaire": "KS", "est_active": True},
-    {"numero": 7, "date_mise_copropriete": "24/03/2022", "programme_neolia": "332 / 909", "adresse": "1, 3, 5 rue Jaquet", "ville": "SOCHAUX", "immatriculation": "AH4-364-691", "nombre_logements": 30, "exercice_comptable": "31-déc", "gestionnaire": "KS", "est_active": True},
-    {"numero": 8, "date_mise_copropriete": "21/12/2021", "programme_neolia": "6012", "adresse": "23 à 51 bld Renaud de Bourgogne", "ville": "BELFORT", "immatriculation": "AH1-487-347", "nombre_logements": 15, "exercice_comptable": "31-déc", "gestionnaire": "AJ", "est_active": True},
-    {"numero": 9, "date_mise_copropriete": "13/05/2022", "programme_neolia": "6025", "adresse": "6 rue des capucins", "ville": "BELFORT", "immatriculation": "AH6-056-832", "nombre_logements": 17, "exercice_comptable": "31-déc", "gestionnaire": "AJ", "est_active": True},
-    {"numero": 10, "date_mise_copropriete": "29/04/2022", "programme_neolia": "265 / 887", "adresse": "1 et 3 impasse des bleuets", "ville": "MEZIRE", "immatriculation": "AH5-052-972", "nombre_logements": 14, "exercice_comptable": "30-juin", "gestionnaire": "AJ", "est_active": True}
-]
 
 # ========== STATISTICS FUNCTION ==========
 def get_statistiques():
@@ -244,12 +271,37 @@ def copropriete(copro_id):
     copropriete = Copropriete.query.options(
         joinedload(Copropriete.fiche_immeuble),
         joinedload(Copropriete.coproprietaires),
+        joinedload(Copropriete.coproprietaires).joinedload(Coproprietaire.lots),
+        joinedload(Copropriete.coproprietaires).joinedload(Coproprietaire.emails),
+        joinedload(Copropriete.coproprietaires).joinedload(Coproprietaire.telephones),
         joinedload(Copropriete.contrats).joinedload(Contrat.prestations),
         joinedload(Copropriete.assemblees_generales).joinedload(AssembleeGenerale.points_a_retenir),
         joinedload(Copropriete.assemblees_generales).joinedload(AssembleeGenerale.budgets_travaux).joinedload(BudgetTravaux.appels_fonds),
         joinedload(Copropriete.resolutions_futures)
     ).get_or_404(copro_id)
-    return render_template('copropriete.html', copropriete=copropriete)
+
+    types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Autre"]
+    civilites = Civilite.query.all()
+
+    return render_template(
+        'copropriete.html',
+        copropriete=copropriete,
+        contrats=copropriete.contrats,
+        coproprietaires=copropriete.coproprietaires,
+        assemblees=copropriete.assemblees_generales,
+        resolutions=copropriete.resolutions_futures,
+        types_contrats=types_contrats,
+        civilites=civilites
+    )
+
+@app.route('/coproprietaire/<int:coproprietaire_id>/delete', methods=['POST'])
+def delete_coproprietaire(coproprietaire_id):
+    coproprietaire = Coproprietaire.query.get_or_404(coproprietaire_id)
+    copro_id = coproprietaire.copropriete_id
+    db.session.delete(coproprietaire)
+    db.session.commit()
+    flash('Copropriétaire supprimé avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
 
 @app.route('/copropriete/new', methods=['GET', 'POST'])
 def new_copropriete():
@@ -278,6 +330,53 @@ def new_copropriete():
         flash(f'Copropriété #{numero} ajoutée avec succès !', 'success')
         return redirect(url_for('index'))
     return render_template('new_copropriete.html')
+
+@app.route('/copropriete/<int:copro_id>/edit', methods=['GET', 'POST'])
+def edit_copropriete(copro_id):
+    copropriete = Copropriete.query.get_or_404(copro_id)
+
+    if request.method == 'POST':
+        # Récupère les données du formulaire
+        numero = int(request.form.get('numero'))
+        nom = request.form.get('nom')
+        date_mise_copropriete = parse_date(request.form.get('date_mise_copropriete'))
+        programme_neolia = request.form.get('programme_neolia')
+        adresse = request.form.get('adresse')
+        ville = request.form.get('ville')
+        immatriculation = request.form.get('immatriculation')
+        nombre_logements = int(request.form.get('nombre_logements') or 0)
+        exercice_comptable = request.form.get('exercice_comptable')
+        gestionnaire = request.form.get('gestionnaire')
+        est_active = 'est_active' in request.form
+
+        # Vérifie si le numéro existe déjà (sauf pour la copropriété actuelle)
+        existing = Copropriete.query.filter(
+            Copropriete.numero == numero,
+            Copropriete.id != copro_id
+        ).first()
+        if existing:
+            flash(f'Le numéro {numero} existe déjà !', 'error')
+            return redirect(url_for('edit_copropriete', copro_id=copro_id))
+
+        # Met à jour les champs
+        copropriete.numero = numero
+        copropriete.nom = nom
+        copropriete.date_mise_copropriete = date_mise_copropriete
+        copropriete.programme_neolia = programme_neolia
+        copropriete.adresse = adresse
+        copropriete.ville = ville
+        copropriete.immatriculation = immatriculation
+        copropriete.nombre_logements = nombre_logements
+        copropriete.exercice_comptable = exercice_comptable
+        copropriete.gestionnaire = gestionnaire
+        copropriete.est_active = est_active
+
+        db.session.commit()
+        flash(f'Copropriété #{numero} modifiée avec succès !', 'success')
+        return redirect(url_for('copropriete', copro_id=copro_id))
+
+    # Si GET, affiche le formulaire avec les données actuelles
+    return render_template('edit_copropriete.html', copropriete=copropriete)
 
 @app.route('/copropriete/<int:copro_id>/toggle_active', methods=['POST'])
 def toggle_active(copro_id):
@@ -353,10 +452,209 @@ def delete_contrat(contrat_id):
     flash('Contrat supprimé avec succès !', 'success')
     return redirect(url_for('copropriete', copro_id=copro_id))
 
+# ========== COPROPRIETAIRE ROUTES ==========
+@app.route('/save_coproprietaire', methods=['POST'])
+def save_coproprietaire():
+    copro_id = request.form.get('copro_id')
+    coproprietaire_id = request.form.get('coproprietaire_id')
+
+    # --- Récupération des données simples ---
+    nom = request.form.get('nom')
+    prenom = request.form.get('prenom')
+    date_acquisition = parse_date(request.form.get('date_acquisition'))
+    est_residence_principale = 'est_residence_principale' in request.form
+    est_loue = 'est_loue' in request.form
+    date_envoi_mail_accueil = parse_date(request.form.get('date_envoi_mail_accueil'))
+    lien_espace_client = request.form.get('lien_espace_client')
+
+    # --- Récupération des infos du locataire ---
+    locataire_nom = request.form.get('locataire_nom')
+    locataire_prenom = request.form.get('locataire_prenom')
+    locataire_email = request.form.get('locataire_email')
+    locataire_telephone = request.form.get('locataire_telephone')
+
+    # --- Validation ---
+    if est_residence_principale and est_loue:
+        flash("Un copropriétaire ne peut pas être à la fois en résidence principale et avoir un lot loué.", "error")
+        return redirect(url_for('copropriete', copro_id=copro_id))
+
+    if est_loue and not locataire_nom:
+        flash("Le nom du locataire est obligatoire si le lot est loué.", "error")
+        return redirect(url_for('copropriete', copro_id=copro_id))
+
+    # --- Récupération des LOTS (nouveau format) ---
+    lots_data = []
+    for key in request.form:
+        if key.startswith('lots[') and key.endswith('][numero]'):
+            index = key.split('[')[1].split(']')[0]
+            numero = request.form.get(f'lots[{index}][numero]')
+            nature = request.form.get(f'lots[{index}][nature]', '')
+            if numero:
+                lots_data.append({'numero': numero, 'nature': nature})
+
+    if not lots_data:
+        flash("Au moins un lot est obligatoire.", "error")
+        return redirect(url_for('copropriete', copro_id=copro_id))
+
+    # --- Récupération des EMAILS ---
+    emails_data = []
+    principal_email_count = 0
+    for key in request.form:
+        if key.startswith('emails[') and key.endswith('][value]'):
+            index = key.split('[')[1].split(']')[0]
+            value = request.form.get(f'emails[{index}][value]')
+            principal = request.form.get(f'emails[{index}][principal]') == '1'
+            if value:
+                if principal:
+                    principal_email_count += 1
+                emails_data.append({'value': value, 'principal': principal})
+
+    if principal_email_count > 1:
+        flash("Un seul email peut être marqué comme principal.", "error")
+        return redirect(url_for('copropriete', copro_id=copro_id))
+
+    # --- Récupération des TÉLÉPHONES ---
+    telephones_data = []
+    principal_phone_count = 0
+    for key in request.form:
+        if key.startswith('telephones[') and key.endswith('][value]'):
+            index = key.split('[')[1].split(']')[0]
+            value = request.form.get(f'telephones[{index}][value]')
+            principal = request.form.get(f'telephones[{index}][principal]') == '1'
+            if value:
+                if principal:
+                    principal_phone_count += 1
+                telephones_data.append({'value': value, 'principal': principal})
+
+    if principal_phone_count > 1:
+        flash("Un seul téléphone peut être marqué comme principal.", "error")
+        return redirect(url_for('copropriete', copro_id=copro_id))
+
+    # --- Sauvegarde ---
+    try:
+        if coproprietaire_id:
+            cp = Coproprietaire.query.get(coproprietaire_id)
+            if not cp:
+                flash('Copropriétaire non trouvé', 'error')
+                return redirect(url_for('copropriete', copro_id=copro_id))
+        else:
+            cp = Coproprietaire(copropriete_id=copro_id)
+
+        cp.nom = nom
+        cp.prenom = prenom
+        cp.date_acquisition = date_acquisition
+        cp.est_residence_principale = est_residence_principale
+        cp.est_loue = est_loue
+        cp.date_envoi_mail_accueil = date_envoi_mail_accueil
+        cp.lien_espace_client = lien_espace_client
+        cp.locataire_nom = locataire_nom
+        cp.locataire_prenom = locataire_prenom
+        cp.locataire_email = locataire_email
+        cp.locataire_telephone = locataire_telephone
+
+        cp.lots = [LotCoproprietaire(numero=lot['numero'], nature=lot['nature']) for lot in lots_data]
+        cp.emails = [EmailCoproprietaire(value=email['value'], principal=email['principal']) for email in emails_data]
+        cp.telephones = [TelephoneCoproprietaire(value=tel['value'], principal=tel['principal']) for tel in telephones_data]
+
+        db.session.add(cp)
+        db.session.commit()
+        flash('Copropriétaire sauvegardé avec succès !', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erreur lors de la sauvegarde : {str(e)}", "error")
+        app.logger.error(f"Erreur: {str(e)}")
+
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+# ========== AG ROUTES ==========
+@app.route('/ag/save', methods=['POST'])
+def save_ag():
+    copro_id = request.form.get('copro_id')
+    ag_id = request.form.get('ag_id')
+
+    if ag_id:
+        ag = AssembleeGenerale.query.get(ag_id)
+        if not ag:
+            flash('AG non trouvée', 'error')
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    else:
+        ag = AssembleeGenerale(copropriete_id=copro_id)
+
+    ag.date = parse_date(request.form.get('date'))
+    ag.horaire_debut = request.form.get('horaire_debut')
+    ag.horaire_fin = request.form.get('horaire_fin')
+    ag.lieu = request.form.get('lieu')
+    ag.lien_pv = request.form.get('lien_pv')
+    ag.comptes_approuves = 'comptes_approuves' in request.form
+    ag.montant_depenses_exercice_cloture = float(request.form.get('montant_depenses_exercice_cloture') or 0)
+    ag.montant_budget_exercice_cloture = float(request.form.get('montant_budget_exercice_cloture') or 0)
+    ag.montant_budget_exercice_en_cours = float(request.form.get('montant_budget_exercice_en_cours') or 0)
+    ag.montant_budget_exercice_a_venir = float(request.form.get('montant_budget_exercice_a_venir') or 0)
+    ag.honoraires_syndic = float(request.form.get('honoraires_syndic') or 0)
+    ag.periode_honoraires_syndic = request.form.get('periode_honoraires_syndic')
+
+    db.session.add(ag)
+    db.session.commit()
+    flash('AG sauvegardée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+# ========== NOUVELLES ROUTES POUR SUPPRIMER AG ET RESOLUTION ==========
+
+@app.route('/ag/<int:ag_id>/delete', methods=['POST'])
+def delete_ag(ag_id):
+    ag = AssembleeGenerale.query.get_or_404(ag_id)
+    copro_id = ag.copropriete_id
+    db.session.delete(ag)
+    db.session.commit()
+    flash('Assemblée Générale supprimée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+# ========== RESOLUTION ROUTES ==========
+@app.route('/resolution/save', methods=['POST'])
+def save_resolution():
+    copro_id = request.form.get('copro_id')
+    resolution_id = request.form.get('resolution_id')
+
+    if resolution_id:
+        resolution = ResolutionFuture.query.get(resolution_id)
+        if not resolution:
+            flash('Résolution non trouvée', 'error')
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    else:
+        resolution = ResolutionFuture(copropriete_id=copro_id)
+
+    resolution.titre = request.form.get('titre')
+    resolution.projet = request.form.get('projet')
+
+    db.session.add(resolution)
+    db.session.commit()
+    flash('Résolution sauvegardée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+@app.route('/resolution/<int:resolution_id>/delete', methods=['POST'])
+def delete_resolution(resolution_id):
+    resolution = ResolutionFuture.query.get_or_404(resolution_id)
+    copro_id = resolution.copropriete_id
+    db.session.delete(resolution)
+    db.session.commit()
+    flash('Résolution supprimée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
 # ========== MAIN ==========
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+
+        # Initialiser les civilités si elles n'existent pas
+        if Civilite.query.count() == 0:
+            civilites_data = ["Monsieur", "Madame", "Mademoiselle", "Société"]
+            for libelle in civilites_data:
+                civilite = Civilite(libelle=libelle)
+                db.session.add(civilite)
+            db.session.commit()
+            print("✅ Civilités initialisées")
+
+        # Initialiser les copropriétés si elles n'existent pas
         if Copropriete.query.count() == 0:
             for data in COPROPRIETES_DATA:
                 copro = Copropriete(
@@ -375,4 +673,5 @@ if __name__ == '__main__':
                 db.session.add(copro)
             db.session.commit()
             print("✅ Base initialisée avec 10 copropriétés")
+
     app.run(debug=True, host='0.0.0.0', port=5000)
