@@ -260,33 +260,14 @@
               <input type="time" class="form-control" name="horaire_debut" required>
             </div>
             <div class="col-md-3">
-              <label>H. fin</label>
-              <input type="time" class="form-control" name="horaire_fin" required>
-            </div>
-            <div class="col-md-3">
               <label>Lieu</label>
               <input type="text" class="form-control" name="lieu" required>
             </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-12">
-              <label>Lien PV</label>
-              <input type="url" class="form-control" name="lien_pv">
-            </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-12">
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" name="comptes_approuves">
-                <label>Comptes approuvés</label>
-              </div>
-            </div>
-          </div>
-          <div class="row mb-3">
             <div class="col-md-3">
-              <label>Dépenses clôture (€)</label>
-              <input type="number" step="0.01" class="form-control" name="montant_depenses_exercice_cloture">
+              <label>Type d'AG</label>
+              <input type="text" class="form-control" name="type_ag" required>
             </div>
+          </div>
             <div class="col-md-3">
               <label>Budget clôture (€)</label>
               <input type="number" step="0.01" class="form-control" name="montant_budget_exercice_cloture">
@@ -706,27 +687,12 @@
               <input type="time" class="form-control" name="horaire_debut" value="{{ a.horaire_debut }}" required>
             </div>
             <div class="col-md-3">
-              <label>H. fin</label>
-              <input type="time" class="form-control" name="horaire_fin" value="{{ a.horaire_fin }}" required>
-            </div>
-            <div class="col-md-3">
               <label>Lieu</label>
               <input type="text" class="form-control" name="lieu" value="{{ a.lieu }}" required>
             </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-12">
-              <label>Lien PV</label>
-              <input type="url" class="form-control" name="lien_pv" value="{{ a.lien_pv or '' }}">
-            </div>
-          </div>
-          <div class="row mb-3">
-            <div class="col-md-12">
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" name="comptes_approuves"
-                       {% if a.comptes_approuves %}checked{% endif %}>
-                <label>Comptes approuvés</label>
-              </div>
+            <div class="col-md-3">
+              <label>Type d'AG</label>
+              <input type="text" class="form-control" name="type_ag" value="{{ a.type_ag or '' }}" required>
             </div>
           </div>
           <div class="row mb-3">
