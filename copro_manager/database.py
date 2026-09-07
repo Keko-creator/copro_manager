@@ -82,6 +82,7 @@ class Coproprietaire(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
+    civilite = db.relationship('Civilite', backref='coproprietaires')
     date_acquisition = db.Column(db.Date)
     nom = db.Column(db.String(100))
     prenom = db.Column(db.String(100))
