@@ -93,19 +93,6 @@
               <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="addPersonRow('persons-container-add')">+ Ajouter une personne</button>
             </div>
           </div>
-          <!-- Civilité -->
-          <div class="row mb-3">
-            <div class="col-md-3">
-              <label>Civilité</label>
-              <select class="form-select" name="civilite_id">
-                <option value="">Civilité</option>
-                {% for c in Civilite.query.all() %}
-                <option value="{{ c.id }}">{{ c.libelle }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-
           <!-- Date acquisition -->
           <div class="row mb-3">
             <div class="col-md-12">
@@ -487,18 +474,6 @@
             </div>
           </div>
 
-          <!-- Civilité -->
-          <div class="row mb-3">
-            <div class="col-md-3">
-              <label>Civilité</label>
-              <select class="form-select" name="civilite_id">
-                <option value="">Civilité</option>
-                {% for c in civilites %}
-                <option value="{{ c.id }}" {% if cp.civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
           <!-- Date acquisition -->
           <div class="row mb-3">
             <div class="col-md-12">
