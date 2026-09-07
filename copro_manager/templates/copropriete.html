@@ -161,6 +161,7 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
+                        <th>Civilité</th>
                         <th>Nom</th>
                         <th>Prénom</th>
                         <th>Lots</th>
@@ -174,6 +175,7 @@
                 <tbody>
                     {% for cp in coproprietaires %}
                     <tr>
+                        <td>{{ cp.civilite.libelle if cp.civilite else 'NONE' }}</td>
                         <td>{{ cp.nom }}</td>
                         <td>{{ cp.prenom }}</td>
 
