@@ -81,7 +81,7 @@ class Prestation(db.Model):
 class Coproprietaire(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
-    civilite = db.relationship('Civilite', backref='coproprietaires')
+    civilite = db.relationship('Civilite', backref='coproprietaires', foreign_keys=[civilite_id])
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     date_acquisition = db.Column(db.Date)
     nom = db.Column(db.String(100))
