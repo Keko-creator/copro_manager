@@ -80,6 +80,7 @@ class Prestation(db.Model):
 
 class Coproprietaire(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     date_acquisition = db.Column(db.Date)
     nom = db.Column(db.String(100))
@@ -94,6 +95,7 @@ class Coproprietaire(db.Model):
     lien_espace_client = db.Column(db.String(500))
 
     locataire_nom = db.Column(db.String(100))
+    locataire_civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
     locataire_prenom = db.Column(db.String(100))
     locataire_email = db.Column(db.String(200))
     locataire_telephone = db.Column(db.String(50))
@@ -461,6 +463,7 @@ def save_coproprietaire():
     # --- Récupération des données simples ---
     nom = request.form.get('nom')
     prenom = request.form.get('prenom')
+    civilite_id = request.form.get('civilite_id')
     date_acquisition = parse_date(request.form.get('date_acquisition'))
     est_residence_principale = 'est_residence_principale' in request.form
     est_loue = 'est_loue' in request.form
@@ -469,6 +472,7 @@ def save_coproprietaire():
 
     # --- Récupération des infos du locataire ---
     locataire_nom = request.form.get('locataire_nom')
+    locataire_civilite_id = request.form.get('locataire_civilite_id')
     locataire_prenom = request.form.get('locataire_prenom')
     locataire_email = request.form.get('locataire_email')
     locataire_telephone = request.form.get('locataire_telephone')
@@ -550,6 +554,8 @@ def save_coproprietaire():
         cp.locataire_nom = locataire_nom
         cp.locataire_prenom = locataire_prenom
         cp.locataire_email = locataire_email
+        cp.civilite_id = civilite_id
+        cp.locataire_civilite_id = locataire_civilite_id
         cp.locataire_telephone = locataire_telephone
 
         cp.lots = [LotCoproprietaire(numero=lot['numero'], nature=lot['nature']) for lot in lots_data]
@@ -647,7 +653,7 @@ if __name__ == '__main__':
 
         # Initialiser les civilités si elles n'existent pas
         if Civilite.query.count() == 0:
-            civilites_data = ["Monsieur", "Madame", "Mademoiselle", "Société"]
+            civilites_data = ["Monsieur", "Madame", "Société"]
             for libelle in civilites_data:
                 civilite = Civilite(libelle=libelle)
                 db.session.add(civilite)

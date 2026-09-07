@@ -81,6 +81,7 @@ class Prestation(db.Model):
 class Coproprietaire(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
+    civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
     date_acquisition = db.Column(db.Date)
     nom = db.Column(db.String(100))
     prenom = db.Column(db.String(100))
@@ -93,6 +94,7 @@ class Coproprietaire(db.Model):
     date_envoi_mail_accueil = db.Column(db.Date)
     lien_espace_client = db.Column(db.String(500))
 
+    locataire_civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
     locataire_nom = db.Column(db.String(100))
     locataire_prenom = db.Column(db.String(100))
     locataire_email = db.Column(db.String(200))
