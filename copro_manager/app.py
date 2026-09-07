@@ -461,9 +461,9 @@ def save_coproprietaire():
     coproprietaire_id = request.form.get('coproprietaire_id')
 
     # --- Récupération des données simples ---
-    nom = request.form.get('nom')
-    prenom = request.form.get('prenom')
-    civilite_id = request.form.get('civilite_id')
+    nom = request.form.get('persons[0][nom]') or request.form.get('nom')
+    prenom = request.form.get('persons[0][prenom]') or request.form.get('prenom')
+    civilite_id = request.form.get('persons[0][civilite_id]') or request.form.get('civilite_id')
     date_acquisition = parse_date(request.form.get('date_acquisition'))
     est_residence_principale = 'est_residence_principale' in request.form
     est_loue = 'est_loue' in request.form
