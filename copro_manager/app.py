@@ -652,14 +652,13 @@ if __name__ == '__main__':
         db.create_all()
 
         # Initialiser les civilités si elles n'existent pas
-    civilites_data = ["Monsieur", "Madame", "Monsieur et Madame", "Société"]
-            for libelle in civilites_data:
+        civilites_data = ["Monsieur", "Madame", "Société"]
+        for libelle in civilites_data:
             if not Civilite.query.filter_by(libelle=libelle).first():
-            civilite = Civilite(libelle=libelle)
-            db.session.add(civilite)
-            db.session.commit()
-    print("✅ Civilités initialisées : Monsieur, Madame, Monsieur et Madame, Société)
-
+                civilite = Civilite(libelle=libelle)
+                db.session.add(civilite)
+        db.session.commit()
+        print("✅ Civilités initialisées : Monsieur, Madame, Société")
         # Initialiser les copropriétés si elles n'existent pas
         if Copropriete.query.count() == 0:
             for data in COPROPRIETES_DATA:
