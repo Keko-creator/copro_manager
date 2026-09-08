@@ -1,6 +1,6 @@
 <!-- Modal ajouter contrat -->
 <div class="modal fade" id="addContratModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <form method="POST" action="{{ url_for('save_contrat') }}">
         <div class="modal-header">
@@ -12,7 +12,7 @@
           <div class="row mb-3">
             <div class="col-md-6">
               <label>Type</label>
-              <select class="form-select" name="type_contrat" required>
+              <select class="form-select" name="type_contrat" id="addTypeContrat" required onchange="toggleContratDetails('add', this.value)">
                 {% for t in types_contrats %}
                 <option value="{{ t }}">{{ t }}</option>
                 {% endfor %}
@@ -41,6 +41,46 @@
             <div class="col-md-6">
               <label>Date fin</label>
               <input type="date" class="form-control" name="date_fin">
+            </div>
+          </div>
+          
+          <!-- Section pour les détails spécifiques aux espaces verts -->
+          <div id="addEspaceVertDetails" class="espaces-verts-details" style="display: none;">
+            <hr>
+            <h5>Détails Espaces Verts</h5>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label>Superficie gazons (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[superficie_gazons]">
+              </div>
+              <div class="col-md-4">
+                <label>Superficie débroussaillage/fauchage (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[superficie_debroussaillage]">
+              </div>
+              <div class="col-md-4">
+                <label>Taille de haies (ml)</label>
+                <input type="number" step="0.01" class="form-control" name="details[taille_haies]">
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label>Binage et taille massifs arbustifs (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[binage_taille_massifs]">
+              </div>
+              <div class="col-md-4">
+                <label>Toitures végétalisées (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[toitures_vegetalisees]">
+              </div>
+              <div class="col-md-4">
+                <label>Fréquence</label>
+                <input type="text" class="form-control" name="details[frequence]">
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <label>Tarifs (séparés par des virgules pour chaque type de surface)</label>
+                <input type="text" class="form-control" name="details[tarifs]" placeholder="Ex: 0.20,3.00,3.00,3.00,3.00">
+              </div>
             </div>
           </div>
         </div>
@@ -307,7 +347,7 @@
 <!-- Modals edit -->
 {% for c in contrats %}
 <div class="modal fade" id="editContratModal-{{ c.id }}" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <form method="POST" action="{{ url_for('save_contrat') }}">
         <input type="hidden" name="contrat_id" value="{{ c.id }}">
@@ -320,7 +360,7 @@
           <div class="row mb-3">
             <div class="col-md-6">
               <label>Type</label>
-              <select class="form-select" name="type_contrat">
+              <select class="form-select" name="type_contrat" id="editTypeContrat-{{ c.id }}" onchange="toggleContratDetails('edit-{{ c.id }}', this.value)">
                 {% for t in types_contrats %}
                 <option value="{{ t }}" {% if c.type_contrat == t %}selected{% endif %}>{{ t }}</option>
                 {% endfor %}
@@ -351,6 +391,47 @@
               <label>Date fin</label>
               <input type="date" class="form-control" name="date_fin"
                      value="{{ c.date_fin.strftime('%Y-%m-%d') if c.date_fin else '' }}">
+            </div>
+          </div>
+          
+          {% set details = c.details_json|from_json if c.details_json else {} %}
+          <!-- Section pour les détails spécifiques aux espaces verts -->
+          <div id="editEspaceVertDetails-{{ c.id }}" class="espaces-verts-details" {% if c.type_contrat == 'Espaces verts' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+            <hr>
+            <h5>Détails Espaces Verts</h5>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label>Superficie gazons (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[superficie_gazons]" value="{{ details.get('superficie_gazons', '') }}">
+              </div>
+              <div class="col-md-4">
+                <label>Superficie débroussaillage/fauchage (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[superficie_debroussaillage]" value="{{ details.get('superficie_debroussaillage', '') }}">
+              </div>
+              <div class="col-md-4">
+                <label>Taille de haies (ml)</label>
+                <input type="number" step="0.01" class="form-control" name="details[taille_haies]" value="{{ details.get('taille_haies', '') }}">
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label>Binage et taille massifs arbustifs (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[binage_taille_massifs]" value="{{ details.get('binage_taille_massifs', '') }}">
+              </div>
+              <div class="col-md-4">
+                <label>Toitures végétalisées (m²)</label>
+                <input type="number" step="0.01" class="form-control" name="details[toitures_vegetalisees]" value="{{ details.get('toitures_vegetalisees', '') }}">
+              </div>
+              <div class="col-md-4">
+                <label>Fréquence</label>
+                <input type="text" class="form-control" name="details[frequence]" value="{{ details.get('frequence', '') }}">
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <label>Tarifs (séparés par des virgules pour chaque type de surface)</label>
+                <input type="text" class="form-control" name="details[tarifs]" value="{{ details.get('tarifs', '') }}">
+              </div>
             </div>
           </div>
         </div>

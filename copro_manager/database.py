@@ -65,6 +65,7 @@ class Contrat(db.Model):
     date_debut = db.Column(db.Date)
     date_fin = db.Column(db.Date)
     montant_annuel = db.Column(db.Float)
+    details_json = db.Column(db.Text)
     prestations = db.relationship('Prestation', backref='contrat', lazy=True, cascade="all, delete-orphan")
 
 # Modèle pour les prestations

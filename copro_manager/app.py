@@ -67,6 +67,7 @@ class Contrat(db.Model):
     date_debut = db.Column(db.Date)
     date_fin = db.Column(db.Date)
     montant_annuel = db.Column(db.Float)
+    details_json = db.Column(db.Text)
     prestations = db.relationship('Prestation', backref='contrat', lazy=True, cascade="all, delete-orphan")
 
 class Prestation(db.Model):
@@ -275,7 +276,7 @@ def copropriete(copro_id):
         joinedload(Copropriete.resolutions_futures)
     ).get_or_404(copro_id)
 
-    types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Autre"]
+    types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Espaces verts", "Autre"]
     civilites = Civilite.query.all()
 
     return render_template(
@@ -432,6 +433,16 @@ def save_contrat():
     contrat.date_debut = parse_date(request.form.get('date_debut'))
     contrat.date_fin = parse_date(request.form.get('date_fin'))
     contrat.montant_annuel = float(request.form.get('montant_annuel') or 0)
+    
+    # Gestion des détails spécifiques (JSON)
+    details = {}
+    for key in request.form:
+        if key.startswith('details['):
+            field_name = key.replace('details[', '').replace(']', '')
+            details[field_name] = request.form.get(key)
+    
+    import json
+    contrat.details_json = json.dumps(details) if details else None
 
     db.session.add(contrat)
     db.session.commit()
