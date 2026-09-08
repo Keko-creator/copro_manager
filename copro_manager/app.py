@@ -276,7 +276,7 @@ def copropriete(copro_id):
         joinedload(Copropriete.resolutions_futures)
     ).get_or_404(copro_id)
 
-    types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Espaces verts", "Autre"]
+    types_contrats = TYPES_CONTRATS_FOURNISSEURS + ["Entretien", "Autre"]
     civilites = Civilite.query.all()
 
     return render_template(
@@ -674,5 +674,47 @@ if __name__ == '__main__':
                 db.session.add(copro)
             db.session.commit()
             print("✅ Base initialisée avec 10 copropriétés")
+
+# Liste complète des types de contrats fournisseurs
+TYPES_CONTRATS_FOURNISSEURS = [
+    "Assurance",
+    "Chauffage",
+    "Eau",
+    "Électricité",
+    "Espaces verts",
+    "Nettoyage",
+    "Portails",
+    "Sécurité incendie",
+    "Sous-compteurs d'eau",
+    "VMC",
+    "Ascenseurs"
+]
+
+@app.route('/contrats_fournisseurs')
+def contrats_fournisseurs():
+    """Page listant les types de contrats fournisseurs"""
+    # Récupérer tous les contrats groupés par type
+    from sqlalchemy import func
+    
+    # Compter le nombre de contrats par type
+    contrats_par_type = db.session.query(
+        Contrat.type_contrat,
+        func.count(Contrat.id).label('nombre_contrats')
+    ).group_by(Contrat.type_contrat).all()
+    
+    # Créer un dictionnaire avec les types de contrats et leur nombre
+    stats_contrats = {}
+    for type_contrat, count in contrats_par_type:
+        stats_contrats[type_contrat] = count
+    
+    # Tri alphabétique des types de contrats
+    types_contrats_tries = sorted(TYPES_CONTRATS_FOURNISSEURS)
+    
+    return render_template(
+        'contrats_fournisseurs.html',
+        types_contrats=types_contrats_tries,
+        stats_contrats=stats_contrats
+    )
+
 
     app.run(debug=True, host='0.0.0.0', port=5000)
