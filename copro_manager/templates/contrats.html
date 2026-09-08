@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Types de Contrats - Copro Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="display-4"><i class="fas fa-file-contract"></i> Types de Contrats</h1>
+        <p class="lead">Gestion des différents types de contrats disponibles pour les copropriétés</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3><i class="fas fa-list"></i> Liste des Types de Contrats</h3>
+            </div>
+            <div class="card-body">
+                <p>Sélectionnez un type de contrat pour accéder à sa gestion détaillée.</p>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Type de Contrat</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for type_contrat in types_contrats %}
+                            <tr>
+                                <td><strong>{{ type_contrat }}</strong></td>
+                                <td>{{ descriptions[type_contrat] or "Description à venir" }}</td>
+                                <td>
+                                    <a href="{{ url_for('type_contrat_page', type_contrat=type_contrat|lower|replace(' ', '_')) }}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i> Voir
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -241,6 +241,45 @@ def get_statistiques():
     }
 
 # ========== ROUTES ==========
+@app.route('/contrats')
+def contrats():
+    types_contrats = [
+        "Assurance",
+        "Nettoyage", 
+        "Espaces verts",
+        "Sécurité incendie",
+        "Sous-compteurs d'eau",
+        "VMC",
+        "Ascenseurs",
+        "Électricité",
+        "Eau",
+        "Chaufferie",
+        "Gaz",
+        "Portes automatiques"
+    ]
+    
+    descriptions = {
+        "Assurance": "Contrats d'assurance pour les copropriétés",
+        "Nettoyage": "Contrats de nettoyage des parties communes",
+        "Espaces verts": "Contrats d'entretien des espaces verts",
+        "Sécurité incendie": "Contrats de maintenance des systèmes de sécurité incendie",
+        "Sous-compteurs d'eau": "Contrats de gestion des sous-compteurs d'eau",
+        "VMC": "Contrats de maintenance des ventilations mécaniques contrôlées",
+        "Ascenseurs": "Contrats de maintenance des ascenseurs",
+        "Électricité": "Contrats d'approvisionnement et maintenance électrique",
+        "Eau": "Contrats d'approvisionnement en eau",
+        "Chaufferie": "Contrats de maintenance des systèmes de chauffage",
+        "Gaz": "Contrats d'approvisionnement en gaz",
+        "Portes automatiques": "Contrats de maintenance des portes automatiques"
+    }
+    
+    types_contrats.sort()
+    return render_template('contrats.html', types_contrats=types_contrats, descriptions=descriptions)
+
+@app.route('/contrats/<type_contrat>')
+def type_contrat_page(type_contrat):
+    return render_template('type_contrat.html', type_contrat=type_contrat)
+
 @app.route('/')
 def index():
     search_query = request.args.get('q', '')
