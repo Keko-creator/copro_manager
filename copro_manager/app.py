@@ -136,19 +136,11 @@ class AssembleeGenerale(db.Model):
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     date = db.Column(db.Date)
     horaire_debut = db.Column(db.String(20))
-    horaire_fin = db.Column(db.String(20))
     lieu = db.Column(db.String(200))
-    lien_pv = db.Column(db.String(500))
-    comptes_approuves = db.Column(db.Boolean, default=False)
-    montant_depenses_exercice_cloture = db.Column(db.Float)
-    montant_budget_exercice_cloture = db.Column(db.Float)
-    montant_budget_exercice_en_cours = db.Column(db.Float)
-    montant_budget_exercice_a_venir = db.Column(db.Float)
-    honoraires_syndic = db.Column(db.Float)
-    periode_honoraires_syndic = db.Column(db.String(100))
+    type_ag = db.Column(db.String(100))  # Nouveau champ: Type d'AG
+
     points_a_retenir = db.relationship('PointARetenir', backref='assemblee_generale', lazy=True, cascade="all, delete-orphan")
     budgets_travaux = db.relationship('BudgetTravaux', backref='assemblee_generale', lazy=True, cascade="all, delete-orphan")
-
 class PointARetenir(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ag_id = db.Column(db.Integer, db.ForeignKey('assemblee_generale.id'), nullable=False)
@@ -241,45 +233,6 @@ def get_statistiques():
     }
 
 # ========== ROUTES ==========
-@app.route('/contrats')
-def contrats():
-    types_contrats = [
-        "Assurance",
-        "Nettoyage", 
-        "Espaces verts",
-        "Sécurité incendie",
-        "Sous-compteurs d'eau",
-        "VMC",
-        "Ascenseurs",
-        "Électricité",
-        "Eau",
-        "Chaufferie",
-        "Gaz",
-        "Portes automatiques"
-    ]
-    
-    descriptions = {
-        "Assurance": "Contrats d'assurance pour les copropriétés",
-        "Nettoyage": "Contrats de nettoyage des parties communes",
-        "Espaces verts": "Contrats d'entretien des espaces verts",
-        "Sécurité incendie": "Contrats de maintenance des systèmes de sécurité incendie",
-        "Sous-compteurs d'eau": "Contrats de gestion des sous-compteurs d'eau",
-        "VMC": "Contrats de maintenance des ventilations mécaniques contrôlées",
-        "Ascenseurs": "Contrats de maintenance des ascenseurs",
-        "Électricité": "Contrats d'approvisionnement et maintenance électrique",
-        "Eau": "Contrats d'approvisionnement en eau",
-        "Chaufferie": "Contrats de maintenance des systèmes de chauffage",
-        "Gaz": "Contrats d'approvisionnement en gaz",
-        "Portes automatiques": "Contrats de maintenance des portes automatiques"
-    }
-    
-    types_contrats.sort()
-    return render_template('contrats.html', types_contrats=types_contrats, descriptions=descriptions)
-
-@app.route('/contrats/<type_contrat>')
-def type_contrat_page(type_contrat):
-    return render_template('type_contrat.html', type_contrat=type_contrat)
-
 @app.route('/')
 def index():
     search_query = request.args.get('q', '')
@@ -628,16 +581,8 @@ def save_ag():
 
     ag.date = parse_date(request.form.get('date'))
     ag.horaire_debut = request.form.get('horaire_debut')
-    ag.horaire_fin = request.form.get('horaire_fin')
     ag.lieu = request.form.get('lieu')
-    ag.lien_pv = request.form.get('lien_pv')
-    ag.comptes_approuves = 'comptes_approuves' in request.form
-    ag.montant_depenses_exercice_cloture = float(request.form.get('montant_depenses_exercice_cloture') or 0)
-    ag.montant_budget_exercice_cloture = float(request.form.get('montant_budget_exercice_cloture') or 0)
-    ag.montant_budget_exercice_en_cours = float(request.form.get('montant_budget_exercice_en_cours') or 0)
-    ag.montant_budget_exercice_a_venir = float(request.form.get('montant_budget_exercice_a_venir') or 0)
-    ag.honoraires_syndic = float(request.form.get('honoraires_syndic') or 0)
-    ag.periode_honoraires_syndic = request.form.get('periode_honoraires_syndic')
+    ag.type_ag = request.form.get('type_ag')
 
     db.session.add(ag)
     db.session.commit()
