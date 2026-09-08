@@ -67,7 +67,6 @@ class Contrat(db.Model):
     date_debut = db.Column(db.Date)
     date_fin = db.Column(db.Date)
     montant_annuel = db.Column(db.Float)
-    details_json = db.Column(db.Text)
     prestations = db.relationship('Prestation', backref='contrat', lazy=True, cascade="all, delete-orphan")
 
 class Prestation(db.Model):
@@ -137,11 +136,19 @@ class AssembleeGenerale(db.Model):
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     date = db.Column(db.Date)
     horaire_debut = db.Column(db.String(20))
+    horaire_fin = db.Column(db.String(20))
     lieu = db.Column(db.String(200))
-    type_ag = db.Column(db.String(100))  # Nouveau champ: Type d'AG
-
+    lien_pv = db.Column(db.String(500))
+    comptes_approuves = db.Column(db.Boolean, default=False)
+    montant_depenses_exercice_cloture = db.Column(db.Float)
+    montant_budget_exercice_cloture = db.Column(db.Float)
+    montant_budget_exercice_en_cours = db.Column(db.Float)
+    montant_budget_exercice_a_venir = db.Column(db.Float)
+    honoraires_syndic = db.Column(db.Float)
+    periode_honoraires_syndic = db.Column(db.String(100))
     points_a_retenir = db.relationship('PointARetenir', backref='assemblee_generale', lazy=True, cascade="all, delete-orphan")
     budgets_travaux = db.relationship('BudgetTravaux', backref='assemblee_generale', lazy=True, cascade="all, delete-orphan")
+
 class PointARetenir(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ag_id = db.Column(db.Integer, db.ForeignKey('assemblee_generale.id'), nullable=False)
@@ -276,7 +283,7 @@ def copropriete(copro_id):
         joinedload(Copropriete.resolutions_futures)
     ).get_or_404(copro_id)
 
-    types_contrats = TYPES_CONTRATS_FOURNISSEURS + ["Entretien", "Autre"]
+    types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Autre"]
     civilites = Civilite.query.all()
 
     return render_template(
@@ -433,16 +440,6 @@ def save_contrat():
     contrat.date_debut = parse_date(request.form.get('date_debut'))
     contrat.date_fin = parse_date(request.form.get('date_fin'))
     contrat.montant_annuel = float(request.form.get('montant_annuel') or 0)
-    
-    # Gestion des détails spécifiques (JSON)
-    details = {}
-    for key in request.form:
-        if key.startswith('details['):
-            field_name = key.replace('details[', '').replace(']', '')
-            details[field_name] = request.form.get(key)
-    
-    import json
-    contrat.details_json = json.dumps(details) if details else None
 
     db.session.add(contrat)
     db.session.commit()
@@ -592,8 +589,16 @@ def save_ag():
 
     ag.date = parse_date(request.form.get('date'))
     ag.horaire_debut = request.form.get('horaire_debut')
+    ag.horaire_fin = request.form.get('horaire_fin')
     ag.lieu = request.form.get('lieu')
-    ag.type_ag = request.form.get('type_ag')
+    ag.lien_pv = request.form.get('lien_pv')
+    ag.comptes_approuves = 'comptes_approuves' in request.form
+    ag.montant_depenses_exercice_cloture = float(request.form.get('montant_depenses_exercice_cloture') or 0)
+    ag.montant_budget_exercice_cloture = float(request.form.get('montant_budget_exercice_cloture') or 0)
+    ag.montant_budget_exercice_en_cours = float(request.form.get('montant_budget_exercice_en_cours') or 0)
+    ag.montant_budget_exercice_a_venir = float(request.form.get('montant_budget_exercice_a_venir') or 0)
+    ag.honoraires_syndic = float(request.form.get('honoraires_syndic') or 0)
+    ag.periode_honoraires_syndic = request.form.get('periode_honoraires_syndic')
 
     db.session.add(ag)
     db.session.commit()
@@ -674,47 +679,5 @@ if __name__ == '__main__':
                 db.session.add(copro)
             db.session.commit()
             print("✅ Base initialisée avec 10 copropriétés")
-
-# Liste complète des types de contrats fournisseurs
-TYPES_CONTRATS_FOURNISSEURS = [
-    "Assurance",
-    "Chauffage",
-    "Eau",
-    "Électricité",
-    "Espaces verts",
-    "Nettoyage",
-    "Portails",
-    "Sécurité incendie",
-    "Sous-compteurs d'eau",
-    "VMC",
-    "Ascenseurs"
-]
-
-@app.route('/contrats_fournisseurs')
-def contrats_fournisseurs():
-    """Page listant les types de contrats fournisseurs"""
-    # Récupérer tous les contrats groupés par type
-    from sqlalchemy import func
-    
-    # Compter le nombre de contrats par type
-    contrats_par_type = db.session.query(
-        Contrat.type_contrat,
-        func.count(Contrat.id).label('nombre_contrats')
-    ).group_by(Contrat.type_contrat).all()
-    
-    # Créer un dictionnaire avec les types de contrats et leur nombre
-    stats_contrats = {}
-    for type_contrat, count in contrats_par_type:
-        stats_contrats[type_contrat] = count
-    
-    # Tri alphabétique des types de contrats
-    types_contrats_tries = sorted(TYPES_CONTRATS_FOURNISSEURS)
-    
-    return render_template(
-        'contrats_fournisseurs.html',
-        types_contrats=types_contrats_tries,
-        stats_contrats=stats_contrats
-    )
-
 
     app.run(debug=True, host='0.0.0.0', port=5000)

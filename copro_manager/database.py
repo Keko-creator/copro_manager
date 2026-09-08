@@ -65,7 +65,6 @@ class Contrat(db.Model):
     date_debut = db.Column(db.Date)
     date_fin = db.Column(db.Date)
     montant_annuel = db.Column(db.Float)
-    details_json = db.Column(db.Text)
     prestations = db.relationship('Prestation', backref='contrat', lazy=True, cascade="all, delete-orphan")
 
 # Modèle pour les prestations
@@ -140,8 +139,16 @@ class AssembleeGenerale(db.Model):
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     date = db.Column(db.Date)
     horaire_debut = db.Column(db.String(20))
+    horaire_fin = db.Column(db.String(20))
     lieu = db.Column(db.String(200))
-    type_ag = db.Column(db.String(100))  # Nouveau champ: Type d'AG
+    lien_pv = db.Column(db.String(500))
+    comptes_approuves = db.Column(db.Boolean, default=False)
+    montant_depenses_exercice_cloture = db.Column(db.Float)
+    montant_budget_exercice_cloture = db.Column(db.Float)
+    montant_budget_exercice_en_cours = db.Column(db.Float)
+    montant_budget_exercice_a_venir = db.Column(db.Float)
+    honoraires_syndic = db.Column(db.Float)
+    periode_honoraires_syndic = db.Column(db.String(100))
 
     points_a_retenir = db.relationship('PointARetenir', backref='assemblee_generale', lazy=True, cascade="all, delete-orphan")
     budgets_travaux = db.relationship('BudgetTravaux', backref='assemblee_generale', lazy=True, cascade="all, delete-orphan")

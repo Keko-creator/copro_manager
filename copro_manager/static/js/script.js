@@ -1,17 +1,5 @@
 // Custom JavaScript for Copro Manager
 
-// Fonction pour afficher/masquer les détails spécifiques selon le type de contrat
-function toggleContratDetails(prefix, typeContrat) {
-    const detailsDiv = document.getElementById(prefix + 'EspaceVertDetails');
-    if (detailsDiv) {
-        if (typeContrat === 'Espaces verts') {
-            detailsDiv.style.display = 'block';
-        } else {
-            detailsDiv.style.display = 'none';
-        }
-    }
-}
-
 // Initialize tooltips
 $(document).ready(function() {
     // Enable Bootstrap tooltips
@@ -19,7 +7,7 @@ $(document).ready(function() {
 
     // Confirm deletion
     $('form[onsubmit*="confirm"]').submit(function() {
-        return confirm('\u00cates-vous s\u00fbr de vouloir supprimer cet \u00e9l\u00e9ment ?');
+        return confirm('Êtes-vous sûr de vouloir supprimer cet élément ?');
     });
 
     // Auto-focus on first input in modals
@@ -42,5 +30,5 @@ $(document).ready(function() {
 
     // Console welcome message
     console.log('%c Copro Manager ', 'background: #007bff; color: white; font-size: 20px; padding: 10px;');
-    console.log('%c Logiciel de gestion de copropri\u00e9t\u00e9s ', 'color: #6c757d; font-size: 14px;');
+    console.log('%c Logiciel de gestion de copropriétés ', 'color: #6c757d; font-size: 14px;');
 });

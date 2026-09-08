@@ -293,7 +293,7 @@
                         <td>{{ a.date.strftime('%d/%m/%Y') if a.date else 'N/C' }}</td>
                         <td>{{ a.lieu }}</td>
                         <td>{{ a.horaire_debut }}</td>
-                        <td>{{ a.type_ag }}</td>
+                        <td>{{ a.horaire_fin }}</td>
                         <td>
                             <button type="button" class="btn btn-sm btn-warning"
                                     data-bs-toggle="modal"
@@ -362,7 +362,7 @@
 {% endif %}
 
 <!-- Inclusion des modales -->
-{% with civilites=civilites, copropriete=copropriete %}
+{% with civilites=civilites %}
     {% include 'modals.html' %}
 {% endwith %}
 
