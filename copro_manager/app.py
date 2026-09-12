@@ -183,6 +183,13 @@ class AssuranceColonne(db.Model):
     groupe = db.Column(db.String(50), nullable=False, default='Tarif')
     en_tete = db.Column(db.String(200), nullable=False)
     ordre = db.Column(db.Integer, nullable=False, default=0)
+    # formule: type de calcul automatique, vide si colonne saisie à la main.
+    #   prix_m2        : valeur = cotisation_annee / superficie
+    #   evolution_n   : valeur = (cotisation_N - cotisation_N-1) / cotisation_N-1
+    #   evolution_base: valeur = (cotisation_N - cotisation_base) / cotisation_base
+    formule = db.Column(db.String(50), nullable=True)
+    # parametres formule (JSON) : ex {"annee":12,"ref":11} pour l'année/colonne de référence
+    formule_params = db.Column(db.Text, nullable=True)
     cellules = db.relationship('AssuranceCellule', backref='colonne', lazy=True, cascade="all, delete-orphan")
 
 class AssuranceLigne(db.Model):
@@ -328,8 +335,21 @@ def _assurance_context():
     total_row = next((r for r in rows if r['est_total']), None)
     data_rows = [r for r in rows if not r['est_total']]
 
-    # Map id->en_tête pour l'édition de cellule
+    # Map id->en-tête pour l'édition de cellule
     colonnes_map = {c.id: c.en_tete for c in colonnes}
+
+    # Données des formules pour le recalcul JS temps réel
+    import json as _json
+    colonnes_formules = {}
+    for c in colonnes:
+        if c.formule:
+            colonnes_formules[c.id] = {
+                'formule': c.formule,
+                'params': _json.loads(c.formule_params) if c.formule_params else {},
+            }
+
+    # Index des colonnes par id pour le JS
+    colonnes_ordre = {c.id: i for i, c in enumerate(colonnes)}
 
     return {
         'group_headers': group_headers,
@@ -338,6 +358,8 @@ def _assurance_context():
         'total_row': total_row,
         'colonnes': colonnes,
         'colonnes_map': colonnes_map,
+        'colonnes_formules_json': _json.dumps(colonnes_formules),
+        'colonnes_ordre_json': _json.dumps(colonnes_ordre),
     }
 
 
@@ -346,6 +368,65 @@ def assurance_page():
     """Affiche le tableau de suivi tarifaire des contrats d'assurance,
     chargé depuis la base de données (modèle dynamique)."""
     return render_template('assurance.html', **_assurance_context())
+
+
+def _recalculer_ligne(ligne):
+    """Recalcule toutes les cellules formules d'une ligne d'assurance.
+    À appeler après modification d'une cotisation ou de la superficie."""
+    import json as _json
+    colonnes = AssuranceColonne.query.order_by(AssuranceColonne.ordre).all()
+    # Les paramètres de formule stockent des INDEX (0-N), pas des IDs.
+    # On construit la correspondance index -> id de colonne.
+    idx_vers_id = {i: c.id for i, c in enumerate(colonnes)}
+    cellules = {c.colonne_id: c for c in ligne.cellules}
+
+    def valeur_num(idx):
+        col_id = idx_vers_id.get(idx)
+        if col_id is None:
+            return None
+        cell = cellules.get(col_id)
+        if not cell or not cell.valeur:
+            return None
+        try:
+            v = float(str(cell.valeur).replace(',', '.').replace(' ', ''))
+            return v
+        except (ValueError, TypeError):
+            return None
+
+    def set_valeur(col_id, valeur):
+        cell = cellules.get(col_id)
+        if not cell:
+            cell = AssuranceCellule(ligne_id=ligne.id, colonne_id=col_id, valeur=valeur)
+            cellules[col_id] = cell
+            db.session.add(cell)
+        else:
+            cell.valeur = valeur
+
+    for col in colonnes:
+        if not col.formule:
+            continue
+        params = _json.loads(col.formule_params) if col.formule_params else {}
+        if col.formule == 'prix_m2':
+            cotisation = valeur_num(params.get('cotisation'))
+            superficie = valeur_num(params.get('superficie'))
+            if cotisation is not None and superficie and superficie != 0:
+                set_valeur(col.id, round(cotisation / superficie, 4))
+            else:
+                set_valeur(col.id, '')
+        elif col.formule == 'evolution_n':
+            annee = valeur_num(params.get('annee'))
+            ref = valeur_num(params.get('ref'))
+            if annee is not None and ref is not None and ref != 0:
+                set_valeur(col.id, round((annee - ref) / ref, 4))
+            else:
+                set_valeur(col.id, '')
+        elif col.formule == 'evolution_base':
+            annee = valeur_num(params.get('annee'))
+            base = valeur_num(params.get('base'))
+            if annee is not None and base is not None and base != 0:
+                set_valeur(col.id, round((annee - base) / base, 4))
+            else:
+                set_valeur(col.id, '')
 
 
 @app.route('/contrats/assurance/ligne/add', methods=['POST'])
@@ -418,8 +499,13 @@ def assurance_save_cellule():
     else:
         cellule = AssuranceCellule(ligne_id=ligne_id, colonne_id=colonne_id, valeur=valeur)
         db.session.add(cellule)
+    # Recalcule les colonnes formules de cette ligne si la cellule modifiée
+    # est une colonne saisie (cotisation / superficie / base).
+    ligne = AssuranceLigne.query.get(ligne_id)
+    if ligne and not ligne.est_total:
+        _recalculer_ligne(ligne)
     db.session.commit()
-    flash('Cellule sauvegardée.', 'success')
+    flash('Cellule sauvegardée et recalculée.', 'success')
     return redirect(url_for('assurance_page'))
 
 @app.route('/')

@@ -67,7 +67,7 @@
                         {% for col in colonnes %}
                             <th>
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span>{{ col.en_tete }}</span>
+                                    <span>{{ col.en_tete }}{% if col.formule %}<i class="fas fa-calculator text-info ms-1" title="Colonne calculée automatiquement"></i>{% endif %}</span>
                                     <form method="POST" action="{{ url_for('assurance_delete_colonne', colonne_id=col.id) }}"
                                           class="d-inline" onsubmit="return confirm('Supprimer la colonne « {{ col.en_tete }} » et toutes ses valeurs ?');">
                                         <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Supprimer la colonne">
@@ -229,9 +229,54 @@
     // Données colonnes injectées
     const colonnes = [
         {% for col in colonnes %}
-        { id: {{ col.id }}, en_tete: {{ col.en_tete|tojson }} },
+        { id: {{ col.id }}, en_tete: {{ col.en_tete|tojson }}, formule: {{ col.formule|tojson }} },
         {% endfor %}
     ];
+    // Formules et index des colonnes pour le recalcul temps réel
+    const formules = {{ colonnes_formules_json|safe }};
+    const ordreColonnes = {{ colonnes_ordre_json|safe }};
+
+    function parseNum(v) {
+        if (v === null || v === undefined || v === '') return null;
+        const n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.'));
+        return isNaN(n) ? null : n;
+    }
+    function fmtNum(n) {
+        if (n === null || n === undefined || isNaN(n)) return '';
+        return String(Math.round(n * 10000) / 10000);
+    }
+
+    // Recalcule les cellules formules d'une ligne à partir des inputs
+    function recalculerLigne(inputs) {
+        // valeurs[index] = valeur numérique de la colonne à cet index
+        const valeurs = {};
+        inputs.forEach(function(inp) {
+            const cid = parseInt(inp.getAttribute('data-colonne-id'));
+            valeurs[ordreColonnes[cid]] = parseNum(inp.value);
+        });
+        Object.keys(formules).forEach(function(cidStr) {
+            const cid = parseInt(cidStr);
+            const f = formules[cid];
+            const idx = ordreColonnes[cid];
+            let result = null;
+            if (f.formule === 'prix_m2') {
+                const cot = valeurs[ordreColonnes[f.params.cotisation]];
+                const sup = valeurs[ordreColonnes[f.params.superficie]];
+                if (cot !== null && sup !== null && sup !== 0) result = cot / sup;
+            } else if (f.formule === 'evolution_n') {
+                const annee = valeurs[ordreColonnes[f.params.annee]];
+                const ref = valeurs[ordreColonnes[f.params.ref]];
+                if (annee !== null && ref !== null && ref !== 0) result = (annee - ref) / ref;
+            } else if (f.formule === 'evolution_base') {
+                const annee = valeurs[ordreColonnes[f.params.annee]];
+                const base = valeurs[ordreColonnes[f.params.base]];
+                if (annee !== null && base !== null && base !== 0) result = (annee - base) / base;
+            }
+            // met à jour le champ correspondant (lecture seule)
+            const cible = document.querySelector('input[data-colonne-id="' + cid + '"]');
+            if (cible) cible.value = fmtNum(result);
+        });
+    }
 
     const editBtns = document.querySelectorAll('.edit-ligne-btn');
     const editFields = document.getElementById('editLigneFields');
@@ -248,12 +293,22 @@
             editFields.innerHTML = '';
             colonnes.forEach(function(col, idx) {
                 const val = (idx < tds.length) ? tds[idx].textContent.trim() : '';
+                const isFormule = !!col.formule;
                 const wrapper = document.createElement('div');
                 wrapper.className = 'col-md-4 mb-2';
+                let badge = isFormule ? '<span class="badge bg-info ms-1" title="Colonne calculée automatiquement">auto</span>' : '';
                 wrapper.innerHTML =
-                    '<label class="form-label small">' + col.en_tete + '</label>' +
-                    '<input type="text" class="form-control form-control-sm" data-colonne-id="' + col.id + '" value="' + val.replace(/"/g, '&quot;') + '">';
+                    '<label class="form-label small">' + col.en_tete + badge + '</label>' +
+                    '<input type="text" class="form-control form-control-sm" data-colonne-id="' + col.id + '"' +
+                    (isFormule ? ' readonly' : '') +
+                    ' value="' + val.replace(/"/g, '&quot;') + '">';
                 editFields.appendChild(wrapper);
+            });
+            // Calcul initial + recalcul à chaque saisie
+            const inputs = editFields.querySelectorAll('input[data-colonne-id]');
+            recalculerLigne(inputs);
+            inputs.forEach(function(inp) {
+                inp.addEventListener('input', function() { recalculerLigne(inputs); });
             });
             const modal = new bootstrap.Modal(document.getElementById('editLigneModal'));
             modal.show();
