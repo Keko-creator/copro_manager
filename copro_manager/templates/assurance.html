@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Assurance - Copro Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="display-4"><i class="fas fa-shield-alt"></i> Contrats d'Assurance</h1>
+            <p class="lead">Suivi tarifaire des contrats d'assurance des copropriétés ({{ rows|length }} copropriétés)</p>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addLigneModal">
+                <i class="fas fa-plus"></i> Ajouter une ligne
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addColonneModal">
+                <i class="fas fa-plus"></i> Ajouter une colonne
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="assuranceSearch" class="form-control" placeholder="Rechercher une copropriété, une adresse, une ville, un n° de contrat...">
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <button type="button" class="btn btn-outline-secondary" id="assuranceToggleTotal">
+            <i class="fas fa-calculator"></i> Masquer/Afficher la ligne TOTAL
+        </button>
+        <a href="{{ url_for('contrats') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if colonnes %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover align-middle" id="assuranceTable">
+                <thead class="table-dark">
+                    {# Ligne d'en-têtes de groupe (colspan) #}
+                    <tr class="text-center">
+                        {% set ns = namespace(current='', span=0) %}
+                        {% for gh in group_headers %}
+                            {% if gh == ns.current %}
+                                {% set ns.span = ns.span + 1 %}
+                            {% else %}
+                                {% if ns.current %}
+                                    <th colspan="{{ ns.span }}" class="bg-secondary">{{ ns.current }}</th>
+                                {% endif %}
+                                {% set ns.current = gh %}
+                                {% set ns.span = 1 %}
+                            {% endif %}
+                            {% if loop.last and ns.current %}
+                                <th colspan="{{ ns.span }}" class="bg-secondary">{{ ns.current }}</th>
+                            {% endif %}
+                        {% endfor %}
+                        <th rowspan="2" class="bg-secondary align-middle">Actions</th>
+                    </tr>
+                    {# Ligne d'en-têtes de sous-colonnes + suppression #}
+                    <tr class="text-center">
+                        {% for col in colonnes %}
+                            <th>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>{{ col.en_tete }}</span>
+                                    <form method="POST" action="{{ url_for('assurance_delete_colonne', colonne_id=col.id) }}"
+                                          class="d-inline" onsubmit="return confirm('Supprimer la colonne « {{ col.en_tete }} » et toutes ses valeurs ?');">
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Supprimer la colonne">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="assurance-row" data-total="false">
+                        {% for cell in row.valeurs %}
+                            {% if loop.index0 == 0 %}
+                                <td class="fw-bold">{{ cell }}</td>
+                            {% else %}
+                                <td>{{ cell }}</td>
+                            {% endif %}
+                        {% endfor %}
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-primary edit-ligne-btn"
+                                        data-ligne-id="{{ row.id }}" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('assurance_delete_ligne', ligne_id=row.id) }}"
+                                      class="d-inline" onsubmit="return confirm('Supprimer cette ligne ?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer la ligne">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {# Ligne TOTAL #}
+                    {% if total_row %}
+                    <tr class="assurance-row table-warning fw-bold" data-total="true" id="assuranceTotalRow">
+                        {% for cell in total_row.valeurs %}
+                            <td>{{ cell }}</td>
+                        {% endfor %}
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            Aucune donnée. Importez le fichier Excel avec :
+            <code>python3 import_assurance.py</code>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal ajouter une ligne -->
+<div class="modal fade" id="addLigneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('assurance_add_ligne') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Ajouter une ligne</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Une nouvelle ligne vide sera ajoutée à la fin du tableau. Vous pourrez ensuite remplir chaque cellule en cliquant dessus.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Ajouter la ligne</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ajouter une colonne -->
+<div class="modal fade" id="addColonneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('assurance_add_colonne') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Ajouter une colonne</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Groupe</label>
+                        <select class="form-select" name="groupe">
+                            <option value="Copropriété">Copropriété</option>
+                            <option value="Contrat">Contrat</option>
+                            <option value="Tarif" selected>Tarif</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la colonne</label>
+                        <input type="text" class="form-control" name="en_tete" required placeholder="Ex: 2027, Indice FFB 2027…">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Ajouter la colonne</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal édition d'une ligne (toutes les cellules) -->
+<div class="modal fade" id="editLigneModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier la ligne</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assurance_save_cellule') }}" id="editLigneForm">
+                <div class="modal-body">
+                    {# Rempli dynamiquement en JS #}
+                    <div id="editLigneFields" class="row"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="saveLigneBtn">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const search = document.getElementById('assuranceSearch');
+    const rows = document.querySelectorAll('#assuranceTable tbody tr.assurance-row');
+    if (search) {
+        search.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            rows.forEach(function(tr) {
+                const text = tr.textContent.toLowerCase();
+                tr.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+            });
+        });
+    }
+
+    const toggleBtn = document.getElementById('assuranceToggleTotal');
+    const totalRow = document.getElementById('assuranceTotalRow');
+    if (toggleBtn && totalRow) {
+        toggleBtn.addEventListener('click', function() {
+            totalRow.style.display = (totalRow.style.display === 'none') ? '' : 'none';
+        });
+    }
+
+    // --- Édition d'une ligne ---
+    // Données colonnes injectées
+    const colonnes = [
+        {% for col in colonnes %}
+        { id: {{ col.id }}, en_tete: {{ col.en_tete|tojson }} },
+        {% endfor %}
+    ];
+
+    const editBtns = document.querySelectorAll('.edit-ligne-btn');
+    const editFields = document.getElementById('editLigneFields');
+    const editForm = document.getElementById('editLigneForm');
+    let currentLigneId = null;
+
+    editBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            currentLigneId = this.getAttribute('data-ligne-id');
+            // Récupère les valeurs actuelles de la ligne depuis le DOM
+            const tr = this.closest('tr');
+            const tds = tr.querySelectorAll('td:not(:last-child)');
+            // Construit les champs
+            editFields.innerHTML = '';
+            colonnes.forEach(function(col, idx) {
+                const val = (idx < tds.length) ? tds[idx].textContent.trim() : '';
+                const wrapper = document.createElement('div');
+                wrapper.className = 'col-md-4 mb-2';
+                wrapper.innerHTML =
+                    '<label class="form-label small">' + col.en_tete + '</label>' +
+                    '<input type="text" class="form-control form-control-sm" data-colonne-id="' + col.id + '" value="' + val.replace(/"/g, '&quot;') + '">';
+                editFields.appendChild(wrapper);
+            });
+            const modal = new bootstrap.Modal(document.getElementById('editLigneModal'));
+            modal.show();
+        });
+    });
+
+    // Le formulaire de sauvegarde d'une cellule ne sauvegarde qu'une seule cellule.
+    // Pour sauvegarder toute la ligne, on envoie les cellules une à une via fetch.
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const inputs = editFields.querySelectorAll('input[data-colonne-id]');
+            const promesses = [];
+            inputs.forEach(function(inp) {
+                const colonneId = inp.getAttribute('data-colonne-id');
+                const valeur = inp.value;
+                const fd = new FormData();
+                fd.append('ligne_id', currentLigneId);
+                fd.append('colonne_id', colonneId);
+                fd.append('valeur', valeur);
+                promesses.push(fetch('{{ url_for("assurance_save_cellule") }}', { method: 'POST', body: fd }));
+            });
+            Promise.all(promesses).then(function() {
+                window.location.reload();
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}
