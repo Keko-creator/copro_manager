@@ -173,6 +173,32 @@ class ResolutionFuture(db.Model):
     titre = db.Column(db.String(200))
     projet = db.Column(db.String(500))
 
+# ========== MODÈLES POUR LE TABLEAU ASSURANCE (dynamique) ==========
+# Approche entité-attribut-valeur pour permettre l'ajout/suppression
+# libre de lignes (copropriétés) et de colonnes (années/indicateurs).
+
+class AssuranceColonne(db.Model):
+    __tablename__ = 'assurance_colonnes'
+    id = db.Column(db.Integer, primary_key=True)
+    groupe = db.Column(db.String(50), nullable=False, default='Tarif')
+    en_tete = db.Column(db.String(200), nullable=False)
+    ordre = db.Column(db.Integer, nullable=False, default=0)
+    cellules = db.relationship('AssuranceCellule', backref='colonne', lazy=True, cascade="all, delete-orphan")
+
+class AssuranceLigne(db.Model):
+    __tablename__ = 'assurance_lignes'
+    id = db.Column(db.Integer, primary_key=True)
+    ordre = db.Column(db.Integer, nullable=False, default=0)
+    est_total = db.Column(db.Boolean, default=False)
+    cellules = db.relationship('AssuranceCellule', backref='ligne', lazy=True, cascade="all, delete-orphan")
+
+class AssuranceCellule(db.Model):
+    __tablename__ = 'assurance_cellules'
+    id = db.Column(db.Integer, primary_key=True)
+    ligne_id = db.Column(db.Integer, db.ForeignKey('assurance_lignes.id'), nullable=False)
+    colonne_id = db.Column(db.Integer, db.ForeignKey('assurance_colonnes.id'), nullable=False)
+    valeur = db.Column(db.Text)
+
 # ========== UTILITY FUNCTIONS ==========
 def parse_date(date_str):
     """Parse date in DD/MM/YYYY or YYYY-MM-DD format"""
@@ -273,27 +299,128 @@ def contrats():
 def type_contrat_page(type_contrat):
     # Page dédiée pour le suivi des contrats d'assurance
     if type_contrat == 'assurance':
-        return assurance_page()
+        return redirect(url_for('assurance_page'))
     # Page générique : à terme, un template par type pourra être ajouté
     flash("Cette page n'est pas encore disponible pour ce type de contrat.", 'info')
     return redirect(url_for('contrats'))
 
 
+def _assurance_context():
+    """Construit le contexte de la page Assurance depuis la base."""
+    colonnes = AssuranceColonne.query.order_by(AssuranceColonne.ordre).all()
+    lignes = AssuranceLigne.query.order_by(AssuranceLigne.ordre).all()
+
+    # group_headers: nom du groupe pour chaque colonne (pour le colspan)
+    group_headers = [c.groupe for c in colonnes]
+    sub_headers = [c.en_tete for c in colonnes]
+
+    # Construction d'une matrice de cellules: rows[ligne][colonne]
+    rows = []
+    for ligne in lignes:
+        cellules = {c.colonne_id: c.valeur for c in ligne.cellules}
+        row = {
+            'id': ligne.id,
+            'est_total': ligne.est_total,
+            'valeurs': [cellules.get(col.id, '') for col in colonnes],
+        }
+        rows.append(row)
+
+    total_row = next((r for r in rows if r['est_total']), None)
+    data_rows = [r for r in rows if not r['est_total']]
+
+    # Map id->en_tête pour l'édition de cellule
+    colonnes_map = {c.id: c.en_tete for c in colonnes}
+
+    return {
+        'group_headers': group_headers,
+        'sub_headers': sub_headers,
+        'rows': data_rows,
+        'total_row': total_row,
+        'colonnes': colonnes,
+        'colonnes_map': colonnes_map,
+    }
+
+
+@app.route('/contrats/assurance', endpoint='assurance_page')
 def assurance_page():
     """Affiche le tableau de suivi tarifaire des contrats d'assurance,
-    reproduit à partir du fichier Assurance.xlsx (généré dans assurance_data.json)."""
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assurance_data.json')
-    data = {"group_headers": [], "sub_headers": [], "rows": [], "total_row": None}
-    if os.path.exists(json_path):
-        with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    return render_template(
-        'assurance.html',
-        group_headers=data.get('group_headers', []),
-        sub_headers=data.get('sub_headers', []),
-        rows=data.get('rows', []),
-        total_row=data.get('total_row'),
-    )
+    chargé depuis la base de données (modèle dynamique)."""
+    return render_template('assurance.html', **_assurance_context())
+
+
+@app.route('/contrats/assurance/ligne/add', methods=['POST'])
+def assurance_add_ligne():
+    """Ajoute une nouvelle ligne (copropriété-assurance)."""
+    max_ordre = db.session.query(db.func.max(AssuranceLigne.ordre)).scalar() or 0
+    # On insère avant la ligne TOTAL si elle existe
+    total = AssuranceLigne.query.filter_by(est_total=True).first()
+    if total:
+        # décale la TOTAL à la fin
+        total.ordre = max_ordre + 2
+        new_ordre = max_ordre + 1
+    else:
+        new_ordre = max_ordre + 1
+    ligne = AssuranceLigne(ordre=new_ordre, est_total=False)
+    db.session.add(ligne)
+    db.session.flush()
+    db.session.commit()
+    flash('Nouvelle ligne ajoutée. Cliquez sur les cellules pour la remplir.', 'success')
+    return redirect(url_for('assurance_page'))
+
+
+@app.route('/contrats/assurance/ligne/<int:ligne_id>/delete', methods=['POST'])
+def assurance_delete_ligne(ligne_id):
+    ligne = AssuranceLigne.query.get_or_404(ligne_id)
+    db.session.delete(ligne)
+    db.session.commit()
+    flash('Ligne supprimée.', 'success')
+    return redirect(url_for('assurance_page'))
+
+
+@app.route('/contrats/assurance/colonne/add', methods=['POST'])
+def assurance_add_colonne():
+    """Ajoute une nouvelle colonne (année/indicateur)."""
+    groupe = request.form.get('groupe') or 'Tarif'
+    en_tete = request.form.get('en_tete', '').strip()
+    if not en_tete:
+        flash('Veuillez donner un nom à la nouvelle colonne.', 'error')
+        return redirect(url_for('assurance_page'))
+    max_ordre = db.session.query(db.func.max(AssuranceColonne.ordre)).scalar() or 0
+    col = AssuranceColonne(groupe=groupe, en_tete=en_tete, ordre=max_ordre + 1)
+    db.session.add(col)
+    db.session.commit()
+    flash(f'Colonne « {en_tete} » ajoutée.', 'success')
+    return redirect(url_for('assurance_page'))
+
+
+@app.route('/contrats/assurance/colonne/<int:colonne_id>/delete', methods=['POST'])
+def assurance_delete_colonne(colonne_id):
+    col = AssuranceColonne.query.get_or_404(colonne_id)
+    db.session.delete(col)
+    db.session.commit()
+    flash('Colonne supprimée.', 'success')
+    return redirect(url_for('assurance_page'))
+
+
+@app.route('/contrats/assurance/cellule/save', methods=['POST'])
+def assurance_save_cellule():
+    """Sauvegarde la valeur d'une cellule (édition inline)."""
+    ligne_id = request.form.get('ligne_id', type=int)
+    colonne_id = request.form.get('colonne_id', type=int)
+    valeur = request.form.get('valeur', '')
+    if ligne_id is None or colonne_id is None:
+        flash('Données invalides pour la cellule.', 'error')
+        return redirect(url_for('assurance_page'))
+    cellule = AssuranceCellule.query.filter_by(
+        ligne_id=ligne_id, colonne_id=colonne_id).first()
+    if cellule:
+        cellule.valeur = valeur
+    else:
+        cellule = AssuranceCellule(ligne_id=ligne_id, colonne_id=colonne_id, valeur=valeur)
+        db.session.add(cellule)
+    db.session.commit()
+    flash('Cellule sauvegardée.', 'success')
+    return redirect(url_for('assurance_page'))
 
 @app.route('/')
 def index():
