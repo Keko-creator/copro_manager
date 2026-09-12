@@ -6,6 +6,7 @@ AssuranceCellule correspondant au fichier Excel. À exécuter une fois
 après avoir initialisé la base.
 """
 import os
+import json
 
 import openpyxl
 
@@ -40,6 +41,32 @@ def cellule_valeur(v):
     return str(v).strip()
 
 
+# Mapping index de colonne -> (type de formule, parametres).
+# Règles reconstituées depuis les formules Excel :
+#   - prix_m2 : valeur = cotisation_annee / superficie
+#   - evolution_n : valeur = (cotisation_N - cotisation_N-1) / cotisation_N-1
+#   - evolution_base : valeur = (cotisation_N - cotisation_base) / cotisation_base
+# Les "cotisation_base" = colonne 11 (Cotisation de base TTC).
+# La superficie = colonne 9.
+FORMULES = {
+    12: ('prix_m2', {'cotisation': 11, 'superficie': 9}),
+    17: ('prix_m2', {'cotisation': 15, 'superficie': 9}),   # 2022
+    21: ('prix_m2', {'cotisation': 19, 'superficie': 9}),   # 2023
+    24: ('prix_m2', {'cotisation': 23, 'superficie': 9}),   # 2024
+    29: ('prix_m2', {'cotisation': 28, 'superficie': 9}),   # 2025
+    33: ('prix_m2', {'cotisation': 32, 'superficie': 9}),   # 2025 avenant
+    36: ('prix_m2', {'cotisation': 35, 'superficie': 9}),   # 2026
+    16: ('evolution_base', {'annee': 15, 'base': 11}),      # Base-2022
+    20: ('evolution_n', {'annee': 19, 'ref': 15}),          # 2022-2023
+    25: ('evolution_n', {'annee': 23, 'ref': 19}),          # 2023-2024
+    26: ('evolution_base', {'annee': 23, 'base': 11}),      # Base-2024
+    30: ('evolution_n', {'annee': 28, 'ref': 23}),          # 2024-2025
+    31: ('evolution_base', {'annee': 28, 'base': 11}),      # Base-2025
+    37: ('evolution_n', {'annee': 35, 'ref': 32}),          # 2025-2026 (ref = avenant 2025)
+    38: ('evolution_base', {'annee': 35, 'base': 11}),      # Base-2026
+}
+
+
 def main():
     if not os.path.exists(XLSX_PATH):
         raise SystemExit(f"Fichier introuvable : {XLSX_PATH}")
@@ -53,6 +80,18 @@ def main():
     with app.app_context():
         db.create_all()
 
+        # Ajoute les colonnes formule/formule_params si elles manquent
+        # (db.create_all() ne modifie pas une table existante).
+        with db.engine.begin() as conn:
+            cols = [r[1] for r in conn.exec_driver_sql(
+                "PRAGMA table_info(assurance_colonnes)")]
+            if 'formule' not in cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE assurance_colonnes ADD COLUMN formule VARCHAR(50)")
+            if 'formule_params' not in cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE assurance_colonnes ADD COLUMN formule_params TEXT")
+
         # Réinitialise les tables assurance
         AssuranceCellule.query.delete()
         AssuranceLigne.query.delete()
@@ -65,10 +104,18 @@ def main():
             en_tete = sub_headers[idx]
             if en_tete is None:
                 en_tete = ""
+            formule = None
+            formule_params = None
+            if idx in FORMULES:
+                ftype, fparams = FORMULES[idx]
+                formule = ftype
+                formule_params = json.dumps(fparams)
             col = AssuranceColonne(
                 groupe=groupe_pour_colonne(idx),
                 en_tete=str(en_tete),
                 ordre=idx,
+                formule=formule,
+                formule_params=formule_params,
             )
             db.session.add(col)
             colonnes.append(col)
