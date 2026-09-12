@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Assurance - Copro Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="display-4"><i class="fas fa-shield-alt"></i> Contrats d'Assurance</h1>
+        <p class="lead">Suivi tarifaire des contrats d'assurance des copropriétés ({{ rows|length }} copropriétés)</p>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="assuranceSearch" class="form-control" placeholder="Rechercher une copropriété, une adresse, une ville, un n° de contrat...">
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary" id="assuranceToggleTotal">
+                <i class="fas fa-calculator"></i> Masquer/Afficher la ligne TOTAL
+            </button>
+            <a href="{{ url_for('contrats') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left"></i> Retour aux types de contrats
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover align-middle" id="assuranceTable">
+                <thead class="table-dark sticky-top">
+                    {# Ligne d'en-têtes de groupe #}
+                    <tr class="text-center">
+                        {% for gh in group_headers %}
+                            {% if gh %}
+                                {# calcul du colspan pour ce groupe #}
+                                {% if loop.index0 == 0 %}<th colspan="5" class="bg-secondary">{{ gh }}</th>
+                                {% elif loop.index0 == 5 %}<th colspan="4" class="bg-secondary">{{ gh }}</th>
+                                {% elif loop.index0 == 9 %}<th colspan="32" class="bg-secondary">{{ gh }}</th>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {# Ligne d'en-têtes de sous-colonnes #}
+                    <tr class="text-center">
+                        {% for sh in sub_headers %}
+                            <th>{{ sh }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="assurance-row" data-total="false">
+                        {% for cell in row %}
+                            {% if loop.index0 == 0 %}
+                                <td class="fw-bold">{{ cell }}</td>
+                            {% else %}
+                                <td>{{ cell }}</td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    {# Ligne TOTAL #}
+                    {% if total_row %}
+                    <tr class="assurance-row table-warning fw-bold" data-total="true" id="assuranceTotalRow">
+                        {% for cell in total_row %}
+                            <td>{{ cell }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const search = document.getElementById('assuranceSearch');
+    const rows = document.querySelectorAll('#assuranceTable tbody tr.assurance-row');
+    search.addEventListener('input', function() {
+        const q = this.value.trim().toLowerCase();
+        rows.forEach(function(tr) {
+            const text = tr.textContent.toLowerCase();
+            tr.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+        });
+    });
+
+    const toggleBtn = document.getElementById('assuranceToggleTotal');
+    const totalRow = document.getElementById('assuranceTotalRow');
+    if (toggleBtn && totalRow) {
+        toggleBtn.addEventListener('click', function() {
+            totalRow.style.display = (totalRow.style.display === 'none') ? '' : 'none';
+        });
+    }
+})();
+</script>
+{% endblock %}

@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+import json
 from sqlalchemy.orm import joinedload
 from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute COPROPRIETES_DATA
 
@@ -270,7 +271,29 @@ def contrats():
 
 @app.route('/contrats/<type_contrat>')
 def type_contrat_page(type_contrat):
-    return render_template('type_contrat.html', type_contrat=type_contrat)
+    # Page dédiée pour le suivi des contrats d'assurance
+    if type_contrat == 'assurance':
+        return assurance_page()
+    # Page générique : à terme, un template par type pourra être ajouté
+    flash("Cette page n'est pas encore disponible pour ce type de contrat.", 'info')
+    return redirect(url_for('contrats'))
+
+
+def assurance_page():
+    """Affiche le tableau de suivi tarifaire des contrats d'assurance,
+    reproduit à partir du fichier Assurance.xlsx (généré dans assurance_data.json)."""
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assurance_data.json')
+    data = {"group_headers": [], "sub_headers": [], "rows": [], "total_row": None}
+    if os.path.exists(json_path):
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    return render_template(
+        'assurance.html',
+        group_headers=data.get('group_headers', []),
+        sub_headers=data.get('sub_headers', []),
+        rows=data.get('rows', []),
+        total_row=data.get('total_row'),
+    )
 
 @app.route('/')
 def index():
