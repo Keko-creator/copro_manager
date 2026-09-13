@@ -35,6 +35,10 @@ class Copropriete(db.Model):
     nombre_logements = db.Column(db.Integer)
     exercice_comptable = db.Column(db.String(20))
     gestionnaire = db.Column(db.String(50))
+    comptable = db.Column(db.String(100))
+    responsable_secteur = db.Column(db.String(200))
+    commercial = db.Column(db.String(200))
+    notaire = db.Column(db.String(200))
     est_active = db.Column(db.Boolean, default=True)
 
     # Relationships
@@ -593,6 +597,10 @@ def new_copropriete():
             nombre_logements=int(request.form.get('nombre_logements') or 0),
             exercice_comptable=request.form.get('exercice_comptable'),
             gestionnaire=request.form.get('gestionnaire'),
+            comptable=request.form.get('comptable'),
+            responsable_secteur=request.form.get('responsable_secteur'),
+            commercial=request.form.get('commercial'),
+            notaire=request.form.get('notaire'),
             est_active=True
         )
         db.session.add(new_copro)
@@ -617,6 +625,10 @@ def edit_copropriete(copro_id):
         nombre_logements = int(request.form.get('nombre_logements') or 0)
         exercice_comptable = request.form.get('exercice_comptable')
         gestionnaire = request.form.get('gestionnaire')
+        comptable = request.form.get('comptable')
+        responsable_secteur = request.form.get('responsable_secteur')
+        commercial = request.form.get('commercial')
+        notaire = request.form.get('notaire')
         est_active = 'est_active' in request.form
 
         # Vérifie si le numéro existe déjà (sauf pour la copropriété actuelle)
@@ -639,6 +651,10 @@ def edit_copropriete(copro_id):
         copropriete.nombre_logements = nombre_logements
         copropriete.exercice_comptable = exercice_comptable
         copropriete.gestionnaire = gestionnaire
+        copropriete.comptable = comptable
+        copropriete.responsable_secteur = responsable_secteur
+        copropriete.commercial = commercial
+        copropriete.notaire = notaire
         copropriete.est_active = est_active
 
         db.session.commit()

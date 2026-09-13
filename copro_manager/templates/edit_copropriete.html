@@ -65,6 +65,30 @@
         <input type="text" id="gestionnaire" name="gestionnaire" class="form-control" value="{{ copropriete.gestionnaire or '' }}">
     </div>
 
+    <!-- Comptable -->
+    <div class="form-group">
+        <label for="comptable">Comptable :</label>
+        <input type="text" id="comptable" name="comptable" class="form-control" value="{{ copropriete.comptable or '' }}">
+    </div>
+
+    <!-- Responsable secteur -->
+    <div class="form-group">
+        <label for="responsable_secteur">Responsable secteur :</label>
+        <input type="text" id="responsable_secteur" name="responsable_secteur" class="form-control" value="{{ copropriete.responsable_secteur or '' }}">
+    </div>
+
+    <!-- Commercial -->
+    <div class="form-group">
+        <label for="commercial">Commercial :</label>
+        <input type="text" id="commercial" name="commercial" class="form-control" value="{{ copropriete.commercial or '' }}">
+    </div>
+
+    <!-- Notaire -->
+    <div class="form-group">
+        <label for="notaire">Notaire :</label>
+        <input type="text" id="notaire" name="notaire" class="form-control" value="{{ copropriete.notaire or '' }}">
+    </div>
+
     <!-- Statut (active/inactive) -->
     <div class="form-group form-check">
         <input type="checkbox" id="est_active" name="est_active" class="form-check-input"
