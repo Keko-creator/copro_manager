@@ -103,6 +103,52 @@
     <i class="fas fa-arrow-left"></i> Retour à la liste
 </a>
 
+<!-- Contrat d'assurance (issu du tableau Assurance) -->
+{% if assurance_contrat %}
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h3><i class="fas fa-shield-alt"></i> Contrat d'assurance
+            {% if assurance_contrat.derniere_annee %}<span class="badge bg-light text-dark ms-2">Tarif {{ assurance_contrat.derniere_annee }}</span>{% endif %}
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>Entreprise</th>
+                        <th>Début</th>
+                        <th>N°</th>
+                        <th>Superficie</th>
+                        {% if assurance_contrat.derniere_annee %}
+                        <th>Tarif {{ assurance_contrat.derniere_annee }}</th>
+                        <th>Prix au m²/€TTC {{ assurance_contrat.derniere_annee }}</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="text-center">
+                        <td class="fw-bold">{{ assurance_contrat.entreprise or '—' }}</td>
+                        <td>{{ assurance_contrat.debut or '—' }}</td>
+                        <td>{{ assurance_contrat.numero_contrat or '—' }}</td>
+                        <td>{{ assurance_contrat.superficie or '—' }}</td>
+                        {% if assurance_contrat.derniere_annee %}
+                        <td>{{ assurance_contrat.dernier_tarif or '—' }}</td>
+                        <td>{{ assurance_contrat.dernier_prix_m2 or '—' }}</td>
+                        {% endif %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted mb-0">
+            <a href="{{ url_for('assurance_page') }}" class="text-decoration-none">
+                <i class="fas fa-arrow-right"></i> Voir le tableau complet des contrats d'assurance
+            </a>
+        </p>
+    </div>
+</div>
+{% endif %}
+
 <!-- Liste des contrats -->
 {% if contrats %}
 <div class="card mb-4">
