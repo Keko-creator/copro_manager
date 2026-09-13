@@ -1,0 +1,13 @@
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnements virtuels
+venv/
+env/
+.venv/
+
+# Python
+*.egg-info/
+.eggs/

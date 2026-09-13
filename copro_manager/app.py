@@ -540,6 +540,88 @@ def index():
     stats = get_statistiques()
     return render_template('index.html', coproprietes=coproprietes, search_query=search_query, search_type=search_type, stats=stats)
 
+def _assurance_pour_copropriete(numero):
+    """Récupère les données du contrat d'assurance d'une copropriété.
+
+    La correspondance se fait sur la première colonne du tableau Assurance
+    (« N° de copro ») qui contient le numéro de la copropriété.
+
+    Renvoie un dict avec : entreprise, debut, numero_contrat, superficie,
+    et le tarif + prix au m² de la dernière année tarifaire disponible
+    (la plus à droite dont l'en-tête commence par « Tarif » et la cellule
+    « Prix au m² » associée).
+    Renvoie None si aucune ligne d'assurance ne correspond à ce numéro.
+    """
+    import re
+    colonnes = AssuranceColonne.query.order_by(AssuranceColonne.ordre).all()
+    if not colonnes:
+        return None
+
+    col_by_ordre = {i: c for i, c in enumerate(colonnes)}
+
+    # Repère la ligne dont la première cellule vaut le numéro de la copro.
+    cible = None
+    for ligne in AssuranceLigne.query.order_by(AssuranceLigne.ordre).all():
+        if ligne.est_total:
+            continue
+        cellules = {cl.colonne_id: cl.valeur for cl in ligne.cellules}
+        premiere = cellules.get(colonnes[0].id, '')
+        try:
+            if premiere is not None and str(premiere).strip() == str(numero):
+                cible = (ligne, cellules)
+                break
+        except (ValueError, TypeError):
+            continue
+    if cible is None:
+        return None
+    ligne, cellules = cible
+
+    def val(ordre):
+        col = col_by_ordre.get(ordre)
+        if col is None:
+            return ''
+        return cellules.get(col.id, '') or ''
+
+    entreprise = val(5)
+    debut = val(6)
+    numero_contrat = val(8)
+    superficie = val(9)
+
+    # Dernière colonne « Tarif AAAA » non vide = tarif de la dernière année.
+    dernier_tarif_ordre = None
+    dernier_tarif_annee = None
+    for c in colonnes:
+        m = re.match(r'^Tarif\s+(\d{4})$', c.en_tete.strip() if c.en_tete else '')
+        if not m:
+            continue
+        v = cellules.get(c.id, '')
+        if v not in (None, '', '0', 0):
+            dernier_tarif_ordre = c.ordre
+            dernier_tarif_annee = m.group(1)
+
+    dernier_tarif = ''
+    dernier_prix_m2 = ''
+    if dernier_tarif_ordre is not None:
+        dernier_tarif = val(dernier_tarif_ordre)
+        # Colonne « Prix au m²/€TTC AAAA » située juste après le tarif de l'année.
+        for c in colonnes:
+            if (c.en_tete and c.formule == 'prix_m2'
+                    and c.ordre > dernier_tarif_ordre
+                    and dernier_tarif_annee and dernier_tarif_annee in c.en_tete):
+                dernier_prix_m2 = cellules.get(c.id, '') or ''
+                break
+
+    return {
+        'entreprise': entreprise,
+        'debut': debut,
+        'numero_contrat': numero_contrat,
+        'superficie': superficie,
+        'derniere_annee': dernier_tarif_annee,
+        'dernier_tarif': dernier_tarif,
+        'dernier_prix_m2': dernier_prix_m2,
+    }
+
+
 @app.route('/copropriete/<int:copro_id>')
 def copropriete(copro_id):
     copropriete = Copropriete.query.options(
@@ -556,6 +638,7 @@ def copropriete(copro_id):
 
     types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Autre"]
     civilites = Civilite.query.all()
+    assurance_contrat = _assurance_pour_copropriete(copropriete.numero)
 
     return render_template(
         'copropriete.html',
@@ -565,7 +648,8 @@ def copropriete(copro_id):
         assemblees=copropriete.assemblees_generales,
         resolutions=copropriete.resolutions_futures,
         types_contrats=types_contrats,
-        civilites=civilites
+        civilites=civilites,
+        assurance_contrat=assurance_contrat
     )
 
 @app.route('/coproprietaire/<int:coproprietaire_id>/delete', methods=['POST'])
@@ -934,7 +1018,6 @@ if __name__ == '__main__':
                 civilite = Civilite(libelle=libelle)
                 db.session.add(civilite)
         db.session.commit()
-        print("✅ Civilités initialisées : Monsieur, Madame, Monsieur et Madame, Société")
         # Initialiser les copropriétés si elles n'existent pas
         if Copropriete.query.count() == 0:
             for data in COPROPRIETES_DATA:
@@ -953,6 +1036,5 @@ if __name__ == '__main__':
                 )
                 db.session.add(copro)
             db.session.commit()
-            print("✅ Base initialisée avec 10 copropriétés")
 
     app.run(debug=True, host='0.0.0.0', port=5000)
