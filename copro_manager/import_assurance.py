@@ -29,6 +29,21 @@ def groupe_pour_colonne(idx):
     return "Tarif"
 
 
+def normaliser_en_tete(en_tete):
+    """Préfixe par « Tarif » les colonnes qui ne contiennent qu'une année.
+
+    Les en-têtes « 2021 », « 2022 », ... deviennent « Tarif 2021 », « Tarif 2022 »...
+    Les autres en-têtes (FFB, prix au m², avenant, évolution, etc.) sont renvoyés tels quels.
+    """
+    import re
+    if en_tete is None:
+        return ""
+    texte = str(en_tete).strip()
+    if re.fullmatch(r"\d{4}", texte):
+        return f"Tarif {texte}"
+    return texte
+
+
 def cellule_valeur(v):
     if v is None:
         return ""
@@ -101,9 +116,7 @@ def main():
         # Colonnes
         colonnes = []
         for idx in range(NUM_COLS):
-            en_tete = sub_headers[idx]
-            if en_tete is None:
-                en_tete = ""
+            en_tete = normaliser_en_tete(sub_headers[idx])
             formule = None
             formule_params = None
             if idx in FORMULES:
@@ -112,7 +125,7 @@ def main():
                 formule_params = json.dumps(fparams)
             col = AssuranceColonne(
                 groupe=groupe_pour_colonne(idx),
-                en_tete=str(en_tete),
+                en_tete=en_tete,
                 ordre=idx,
                 formule=formule,
                 formule_params=formule_params,
