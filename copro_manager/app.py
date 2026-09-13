@@ -1,6 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import io
 import os
 import json
 from sqlalchemy.orm import joinedload
@@ -372,6 +373,111 @@ def assurance_page():
     """Affiche le tableau de suivi tarifaire des contrats d'assurance,
     chargé depuis la base de données (modèle dynamique)."""
     return render_template('assurance.html', **_assurance_context())
+
+
+@app.route('/contrats/assurance/export', endpoint='assurance_export')
+def assurance_export():
+    """Exporte le tableau d'assurance dans un fichier Excel (.xlsx).
+
+    Reconstruit le tableau tel qu'affiché : une ligne d'en-têtes de groupe
+    (Copropriété / Contrat / Tarif) fusionnée, une ligne d'en-têtes de
+    colonnes, puis une ligne par copropriété (et la ligne TOTAL en dernier).
+    """
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    colonnes = AssuranceColonne.query.order_by(AssuranceColonne.ordre).all()
+    lignes = AssuranceLigne.query.order_by(AssuranceLigne.ordre).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Assurance"
+
+    # Styles
+    gras_blanc = Font(bold=True, color="FFFFFF")
+    fond_groupe = PatternFill(start_color="212529", end_color="212529", fill_type="solid")
+    fond_sous = PatternFill(start_color="495057", end_color="495057", fill_type="solid")
+    bordure = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"))
+    centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    nb_colonnes = len(colonnes)
+    if nb_colonnes == 0:
+        flash("Aucune donnée à exporter.", "error")
+        return redirect(url_for('assurance_page'))
+
+    # Ligne 1 : en-têtes de groupe (fusion des colonnes d'un même groupe)
+    idx = 0
+    while idx < nb_colonnes:
+        groupe = colonnes[idx].groupe
+        debut = idx
+        while idx < nb_colonnes and colonnes[idx].groupe == groupe:
+            idx += 1
+        ws.cell(row=1, column=debut + 1, value=groupe)
+        if idx - debut > 1:
+            ws.merge_cells(start_row=1, start_column=debut + 1,
+                           end_row=1, end_column=idx)
+        cell = ws.cell(row=1, column=debut + 1)
+        cell.font = gras_blanc
+        cell.fill = fond_groupe
+        cell.alignment = centre
+        cell.border = bordure
+
+    # Ligne 2 : en-têtes de colonnes
+    for c, col in enumerate(colonnes):
+        cell = ws.cell(row=2, column=c + 1, value=col.en_tete)
+        cell.font = gras_blanc
+        cell.fill = fond_sous
+        cell.alignment = centre
+        cell.border = bordure
+
+    # Lignes de données
+    ligne_excel = 3
+    for ligne in lignes:
+        cellules = {cl.colonne_id: cl.valeur for cl in ligne.cellules}
+        for c, col in enumerate(colonnes):
+            valeur = cellules.get(col.id, '')
+            if valeur == '' or valeur is None:
+                continue
+            # Tente de convertir en nombre quand c'est possible
+            try:
+                nombre = float(str(valeur).replace(' ', '').replace(',', '.'))
+                if nombre == int(nombre):
+                    nombre = int(nombre)
+            except (ValueError, TypeError):
+                nombre = str(valeur)
+            cell = ws.cell(row=ligne_excel, column=c + 1, value=nombre)
+            cell.border = bordure
+        # Ligne TOTAL en gras
+        if ligne.est_total:
+            for c in range(nb_colonnes):
+                cell = ws.cell(row=ligne_excel, column=c + 1)
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+        ligne_excel += 1
+
+    # Largeurs de colonnes automatiques (approximation sur l'en-tête)
+    for c, col in enumerate(colonnes):
+        longueur = max(len(col.en_tete.split('\n')[0]) if col.en_tete else 0, 10)
+        ws.column_dimensions[openpyxl.utils.get_column_letter(c + 1)].width = longueur + 2
+    # Première colonne un peu plus large (n° de copro)
+    if colonnes:
+        ws.column_dimensions['A'].width = 14
+    ws.freeze_panes = "B3"
+
+    # Nom du fichier : assurance_AAAA-MM-JJ.xlsx
+    nom_fichier = f"assurance_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    tampon.seek(0)
+
+    return send_file(
+        tampon,
+        as_attachment=True,
+        download_name=nom_fichier,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 def _recalculer_ligne(ligne):
