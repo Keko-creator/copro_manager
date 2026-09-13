@@ -1002,7 +1002,6 @@ if __name__ == '__main__':
                 civilite = Civilite(libelle=libelle)
                 db.session.add(civilite)
         db.session.commit()
-        print("✅ Civilités initialisées : Monsieur, Madame, Monsieur et Madame, Société")
         # Initialiser les copropriétés si elles n'existent pas
         if Copropriete.query.count() == 0:
             for data in COPROPRIETES_DATA:
@@ -1021,6 +1020,5 @@ if __name__ == '__main__':
                 )
                 db.session.add(copro)
             db.session.commit()
-            print("✅ Base initialisée avec 10 copropriétés")
 
     app.run(debug=True, host='0.0.0.0', port=5000)
