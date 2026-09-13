@@ -70,6 +70,14 @@
                     <dd class="col-sm-7">
                         {{ copropriete.date_mise_copropriete.strftime('%d/%m/%Y') if copropriete.date_mise_copropriete else 'N/C' }}
                     </dd>
+                    <dt class="col-sm-5">Comptable :</dt>
+                    <dd class="col-sm-7">{{ copropriete.comptable or 'N/C' }}</dd>
+                    <dt class="col-sm-5">Responsable secteur :</dt>
+                    <dd class="col-sm-7">{{ copropriete.responsable_secteur or 'N/C' }}</dd>
+                    <dt class="col-sm-5">Commercial :</dt>
+                    <dd class="col-sm-7">{{ copropriete.commercial or 'N/C' }}</dd>
+                    <dt class="col-sm-5">Notaire :</dt>
+                    <dd class="col-sm-7">{{ copropriete.notaire or 'N/C' }}</dd>
                 </dl>
             </div>
         </div>
