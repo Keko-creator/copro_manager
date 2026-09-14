@@ -161,7 +161,7 @@
               </div>
               <div class="col-md-4">
                 <div class="form-check mt-2">
-                  <input type="checkbox" class="form-check-input inline-email-principal" name="emails[{{ loop.index0 }}][principal]" value="1"
+                  <input type="checkbox" class="form-check-input edit-email-principal" name="emails[{{ loop.index0 }}][principal]" value="1"
                          {% if email.principal %}checked{% endif %}>
                   <label class="form-check-label">Principal</label>
                 </div>
@@ -178,7 +178,7 @@
               </div>
               <div class="col-md-4">
                 <div class="form-check mt-2">
-                  <input type="checkbox" class="form-check-input inline-email-principal" name="emails[0][principal]" value="1" checked>
+                  <input type="checkbox" class="form-check-input edit-email-principal" name="emails[0][principal]" value="1" checked>
                   <label class="form-check-label">Principal</label>
                 </div>
               </div>
@@ -205,7 +205,7 @@
               </div>
               <div class="col-md-4">
                 <div class="form-check mt-2">
-                  <input type="checkbox" class="form-check-input inline-phone-principal" name="telephones[{{ loop.index0 }}][principal]" value="1"
+                  <input type="checkbox" class="form-check-input edit-phone-principal" name="telephones[{{ loop.index0 }}][principal]" value="1"
                          {% if telephone.principal %}checked{% endif %}>
                   <label class="form-check-label">Principal</label>
                 </div>
@@ -222,7 +222,7 @@
               </div>
               <div class="col-md-4">
                 <div class="form-check mt-2">
-                  <input type="checkbox" class="form-check-input inline-phone-principal" name="telephones[0][principal]" value="1" checked>
+                  <input type="checkbox" class="form-check-input edit-phone-principal" name="telephones[0][principal]" value="1" checked>
                   <label class="form-check-label">Principal</label>
                 </div>
               </div>
@@ -250,108 +250,3 @@
     <button type="submit" class="btn btn-primary">Sauvegarder</button>
   </div>
 </form>
-
-<script>
-(function() {
-  var cpId = {{ cp.id }};
-
-  function reindex(container, prefix, kind) {
-    var rows = container.querySelectorAll('.row');
-    rows.forEach(function(row, i) {
-      var named = row.querySelectorAll('[name^="' + prefix + '"]');
-      named.forEach(function(el) {
-        var n = el.getAttribute('name');
-        el.setAttribute('name', n.replace(/\[\d+\]/, '[' + i + ']'));
-      });
-    });
-  }
-
-  function addRow(containerId, kind) {
-    var container = document.getElementById(containerId);
-    var rows = container.querySelectorAll('.row');
-    var i = rows.length;
-    var html = '';
-    if (kind === 'person') {
-      html = '<div class="row person-row mb-2">' +
-        '<div class="col-md-3"><select class="form-select" name="persons[' + i + '][civilite_id]"><option value="">Civilité</option>{% for c in civilites %}<option value="{{ c.id }}">{{ c.libelle }}</option>{% endfor %}</select></div>' +
-        '<div class="col-md-4"><input type="text" class="form-control" name="persons[' + i + '][nom]" placeholder="Nom" required></div>' +
-        '<div class="col-md-4"><input type="text" class="form-control" name="persons[' + i + '][prenom]" placeholder="Prénom"></div>' +
-        '<div class="col-md-1"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
-        '</div>';
-    } else if (kind === 'lot') {
-      html = '<div class="row lot-row mb-2">' +
-        '<div class="col-md-5"><input type="text" class="form-control" name="lots[' + i + '][numero]" placeholder="N° lot"></div>' +
-        '<div class="col-md-5"><input type="text" class="form-control" name="lots[' + i + '][nature]" placeholder="Nature lot"></div>' +
-        '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
-        '</div>';
-    } else if (kind === 'email') {
-      html = '<div class="row contact-row mb-2">' +
-        '<div class="col-md-6"><input type="email" class="form-control" name="emails[' + i + '][value]" placeholder="Email"></div>' +
-        '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input inline-email-principal" name="emails[' + i + '][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
-        '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
-        '</div>';
-    } else if (kind === 'phone') {
-      html = '<div class="row contact-row mb-2">' +
-        '<div class="col-md-6"><input type="text" class="form-control" name="telephones[' + i + '][value]" placeholder="Téléphone"></div>' +
-        '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input inline-phone-principal" name="telephones[' + i + '][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
-        '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
-        '</div>';
-    }
-    var div = document.createElement('div');
-    div.innerHTML = html;
-    container.appendChild(div.firstElementChild);
-    if (kind === 'email' || kind === 'phone') {
-      var cls = kind === 'email' ? 'inline-email-principal' : 'inline-phone-principal';
-      div.remove();
-      var cb = container.querySelectorAll('.' + cls);
-      cb[cb.length-1].addEventListener('change', function() {
-        if (this.checked) {
-          container.querySelectorAll('.' + cls).forEach(function(c){ if (c!==this) c.checked=false; }.bind(this));
-        }
-      });
-    }
-  }
-
-  // expose
-  if (!window.inlineAddRow) {
-    window.inlineAddRow = function(containerId, kind) {
-      addRow(containerId, kind);
-    };
-  }
-
-  // statut -> locataire
-  var form = document.querySelector('#editCoproprietaireGlobalContent form, #editCoproprietaireGlobalModal form');
-  document.querySelectorAll('.inline-statut').forEach(function(r){
-    r.addEventListener('change', function(){
-      var cont = document.getElementById('locataire-container-edit-' + cpId);
-      cont.style.display = this.value === 'loue' ? 'block' : 'none';
-    });
-  });
-
-  // checkbox principal (un seul)
-  document.querySelectorAll('.inline-email-principal').forEach(function(cb){
-    cb.addEventListener('change', function(){
-      if (this.checked) {
-        document.querySelectorAll('.inline-email-principal').forEach(function(c){ if (c!==cb) c.checked=false; });
-      }
-    });
-  });
-  document.querySelectorAll('.inline-phone-principal').forEach(function(cb){
-    cb.addEventListener('change', function(){
-      if (this.checked) {
-        document.querySelectorAll('.inline-phone-principal').forEach(function(c){ if (c!==cb) c.checked=false; });
-      }
-    });
-  });
-
-  // remove row buttons
-  document.querySelectorAll('#editCoproprietaireGlobalContent .remove-row-btn, #editCoproprietaireGlobalModal .remove-row-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var row = this.closest('.row');
-      var container = row.parentElement;
-      if (container.querySelectorAll('.row').length > 1) row.remove();
-      else alert("Vous devez avoir au moins une ligne.");
-    });
-  });
-})();
-</script>
