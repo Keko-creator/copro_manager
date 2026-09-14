@@ -625,6 +625,12 @@ def assurance_save_cellule():
 
 @app.route('/')
 def index():
+    stats = get_statistiques()
+    return render_template('index.html', stats=stats)
+
+
+@app.route('/coproprietes', endpoint='coproprietes_liste')
+def coproprietes_liste():
     search_query = request.args.get('q', '')
     search_type = request.args.get('type', 'tout')
 
@@ -648,8 +654,7 @@ def index():
             query = query.filter(Copropriete.immatriculation.ilike(f'%{search_query}%'))
 
     coproprietes = query.all()
-    stats = get_statistiques()
-    return render_template('index.html', coproprietes=coproprietes, search_query=search_query, search_type=search_type, stats=stats)
+    return render_template('coproprietes_liste.html', coproprietes=coproprietes, search_query=search_query, search_type=search_type)
 
 def _assurance_pour_copropriete(numero):
     """Récupère les données du contrat d'assurance d'une copropriété.
