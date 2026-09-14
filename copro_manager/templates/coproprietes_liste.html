@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Copropriétés - Copro Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="display-4"><i class="fas fa-building"></i> Copropriétés</h1>
+        <form method="GET" action="{{ url_for('coproprietes_liste') }}" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="q" value="{{ search_query }}" placeholder="Rechercher...">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" name="type">
+                    <option value="tout" {% if search_type == 'tout' %}selected{% endif %}>Tous les champs</option>
+                    <option value="ville" {% if search_type == 'ville' %}selected{% endif %}>Ville</option>
+                    <option value="gestionnaire" {% if search_type == 'gestionnaire' %}selected{% endif %}>Gestionnaire</option>
+                    <option value="immatriculation" {% if search_type == 'immatriculation' %}selected{% endif %}>Immatriculation</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Rechercher
+                </button>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('new_copropriete') }}" class="btn btn-success w-100">
+                    <i class="fas fa-plus"></i> Nouvelle Copropriété
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Liste des copropriétés -->
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-list"></i> Liste des Copropriétés ({{ coproprietes|length }})</h2>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>N°</th>
+                        <th>Nom</th>
+                        <th>Adresse</th>
+                        <th>Ville</th>
+                        <th>Gestionnaire</th>
+                        <th>Logements</th>
+                        <th>Immatriculation</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for copropriete in coproprietes %}
+                    <tr>
+                        <td>{{ copropriete.numero }}</td>
+                        <td><a href="{{ url_for('copropriete', copro_id=copropriete.id) }}">{{ copropriete.nom }}</a></td>
+                        <td>{{ copropriete.adresse }}</td>
+                        <td>{{ copropriete.ville }}</td>
+                        <td>{{ copropriete.gestionnaire or 'N/C' }}</td>
+                        <td>{{ copropriete.nombre_logements or 0 }}</td>
+                        <td>{{ copropriete.immatriculation or 'N/C' }}</td>
+                        <td>
+                            {% if copropriete.est_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('copropriete', copro_id=copropriete.id) }}" class="btn btn-info btn-sm">
+                                <i class="fas fa-eye"></i> Voir
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">Aucune copropriété trouvée.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
