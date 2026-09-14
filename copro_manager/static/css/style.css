@@ -121,3 +121,12 @@ body {
         font-size: 1.25rem;
     }
 }
+/* Liste des demandes : rayage du texte quand le suivi est « Fait » */
+.demande-fait .demande-details,
+.demande-fait td {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+.suivi-btn.active {
+    font-weight: bold;
+}

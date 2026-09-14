@@ -1,0 +1,113 @@
+{% macro demande_form_fields(copropriete, demande) %}
+    <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+    {% if demande %}<input type="hidden" name="demande_id" value="{{ demande.id }}">{% endif %}
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-control" name="date"
+                   value="{% if demande and demande.date %}{{ demande.date.strftime('%Y-%m-%d') }}{% endif %}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Demandeur</label>
+            <select class="form-select" name="demandeur" onchange="toggleDemandeurAutre(this);">
+                {% if demande and demande.demandeur and not coproprietaires|selectattr('nom_affiche','equalto',demande.demandeur)|list %}
+                    <option value="__autre__" selected>{{ demande.demandeur }}</option>
+                {% else %}
+                    <option value="">— Choisir —</option>
+                {% endif %}
+                {% for cp in coproprietaires %}
+                    <option value="{{ cp.nom_affiche }}" {% if demande and demande.demandeur == cp.nom_affiche %}selected{% endif %}>{{ cp.nom_affiche }}</option>
+                {% endfor %}
+                <option value="__autre__" {% if demande and demande.demandeur and not coproprietaires|selectattr('nom_affiche','equalto',demande.demandeur)|list %}selected{% endif %}>Autre…</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Type d'action</label>
+            <select class="form-select" name="type_action">
+                {% set types = ["Intervention", "Devis", "Rappel", "Courriers", "Autres"] %}
+                {% for t in types %}
+                <option value="{{ t }}" {% if demande and demande.type_action == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <label class="form-label">Détails</label>
+            <textarea class="form-control" name="details" rows="3" placeholder="Détails de la demande">{% if demande %}{{ demande.details or '' }}{% endif %}</textarea>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label class="form-label">Échéance</label>
+            <input type="text" class="form-control" name="echeance" placeholder="Échéance"
+                   value="{% if demande %}{{ demande.echeance or '' }}{% endif %}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Suivi</label>
+            <div class="btn-group w-100" role="group">
+                {% set current = demande.suivi if demande else 'a_faire' %}
+                <input type="radio" class="btn-check" name="suivi" id="suivi_a_faire_{{ demande.id if demande else 'new' }}" value="a_faire" {% if current == 'a_faire' %}checked{% endif %}>
+                <label class="btn btn-outline-warning" for="suivi_a_faire_{{ demande.id if demande else 'new' }}">À faire</label>
+                <input type="radio" class="btn-check" name="suivi" id="suivi_en_cours_{{ demande.id if demande else 'new' }}" value="en_cours" {% if current == 'en_cours' %}checked{% endif %}>
+                <label class="btn btn-outline-primary" for="suivi_en_cours_{{ demande.id if demande else 'new' }}">En cours</label>
+                <input type="radio" class="btn-check" name="suivi" id="suivi_fait_{{ demande.id if demande else 'new' }}" value="fait" {% if current == 'fait' %}checked{% endif %}>
+                <label class="btn btn-outline-success" for="suivi_fait_{{ demande.id if demande else 'new' }}">Fait</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3" id="demandeur_autre_row_{{ demande.id if demande else 'new' }}" style="display:none;">
+        <div class="col-md-12">
+            <label class="form-label">Préciser le demandeur</label>
+            <input type="text" class="form-control" name="demandeur_autre" placeholder="Nom du demandeur"
+                   value="{% if demande and demande.demandeur and not coproprietaires|selectattr('nom_affiche','equalto',demande.demandeur)|list %}{{ demande.demandeur }}{% endif %}">
+        </div>
+    </div>
+{% endmacro %}
+
+<!-- Modale d'ajout d'une demande -->
+<div class="modal fade" id="addDemandeModal" tabindex="-1" aria-labelledby="addDemandeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{{ url_for('save_demande') }}" method="POST">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addDemandeModalLabel"><i class="fas fa-clipboard-list"></i> Ajouter une demande</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {{ demande_form_fields(copropriete, None) }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for d in demandes %}
+<div class="modal fade" id="editDemandeModal-{{ d.id }}" tabindex="-1" aria-labelledby="editDemandeModalLabel-{{ d.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{{ url_for('save_demande') }}" method="POST">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editDemandeModalLabel-{{ d.id }}"><i class="fas fa-edit"></i> Modifier la demande</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {{ demande_form_fields(copropriete, d) }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}

@@ -103,6 +103,9 @@
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addResolutionModal">
                 <i class="fas fa-gavel"></i> Ajouter une résolution
             </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDemandeModal">
+                <i class="fas fa-clipboard-list"></i> Ajouter une demande
+            </button>
         </div>
     </div>
 </div>
@@ -426,9 +429,107 @@
 </div>
 {% endif %}
 
+<!-- NOUVEAU : Liste des demandes -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h3><i class="fas fa-clipboard-list"></i> Liste des demandes ({{ demandes|length }})</h3>
+    </div>
+    <div class="card-body">
+        {% if demandes %}
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Demandeur</th>
+                        <th>Type d'action</th>
+                        <th>Détails</th>
+                        <th>Échéance</th>
+                        <th>Suivi</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in demandes %}
+                    <tr id="demande-row-{{ d.id }}" class="{% if d.suivi == 'fait' %}demande-fait{% endif %}">
+                        <td>{% if d.date %}{{ d.date.strftime('%d/%m/%Y') }}{% endif %}</td>
+                        <td>{{ d.demandeur or '' }}</td>
+                        <td>{{ d.type_action or '' }}</td>
+                        <td class="demande-details">{{ d.details or '' }}</td>
+                        <td>{{ d.echeance or '' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-warning suivi-btn {% if d.suivi == 'a_faire' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="a_faire" title="À faire">À faire</button>
+                                <button type="button" class="btn btn-outline-primary suivi-btn {% if d.suivi == 'en_cours' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="en_cours" title="En cours">En cours</button>
+                                <button type="button" class="btn btn-outline-success suivi-btn {% if d.suivi == 'fait' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="fait" title="Fait">Fait</button>
+                            </div>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-warning"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editDemandeModal-{{ d.id }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="{{ url_for('delete_demande', demande_id=d.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                        onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.');">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Aucune demande enregistrée pour le moment.</p>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Inclusion des modales -->
 {% with civilites=civilites %}
     {% include 'modals.html' %}
 {% endwith %}
+{% include 'demande_modal.html' %}
+
+<script>
+// Affiche/masque le champ « Autre demandeur » dans les modales
+toggleDemandeurAutre = function(select) {
+    if (!select) return;
+    var rowId = select.name === 'demandeur' ? null : null;
+    var modal = select.closest('.modal');
+    if (!modal) return;
+    var autreRow = modal.querySelector('[id^="demandeur_autre_row_"]');
+    if (autreRow) autreRow.style.display = select.value === '__autre__' ? 'flex' : 'none';
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Afficher le champ « Autre » si déjà sélectionné (édition)
+    document.querySelectorAll('select[name="demandeur"]').forEach(function(sel){
+        if (sel.value === '__autre__') toggleDemandeurAutre(sel);
+    });
+
+    // Changement de suivi via boutons du tableau (AJAX)
+    document.querySelectorAll('.suivi-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            var demandeId = this.getAttribute('data-demande-id');
+            var suivi = this.getAttribute('data-suivi');
+            var row = document.getElementById('demande-row-' + demandeId);
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/demande/' + demandeId + '/suivi';
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'suivi';
+            input.value = suivi;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        });
+    });
+});
+</script>
 
 {% endblock %}
