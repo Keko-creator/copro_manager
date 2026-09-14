@@ -1,0 +1,152 @@
+<form method="POST" action="{{ url_for('save_coproprietaire') }}">
+  <input type="hidden" name="from" value="coproprietaires">
+  <input type="hidden" name="coproprietaire_id" value="{{ cp.id }}">
+  <input type="hidden" name="copro_id" value="{{ cp.copropriete_id }}">
+  <div class="modal-header">
+    <h5>Modifier le copropriétaire</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+  </div>
+  <div class="modal-body">
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <label>Copropriété (N° de copro)</label>
+        <input type="text" class="form-control" value="#{{ cp.copropriete.numero }} - {{ cp.copropriete.nom }}" disabled>
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <label>Civilité</label>
+        <select class="form-select" name="persons[0][civilite_id]">
+          <option value="">Civilité</option>
+          {% for c in civilites %}
+          <option value="{{ c.id }}" {% if cp.civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label>Nom</label>
+        <input type="text" class="form-control" name="persons[0][nom]" value="{{ cp.nom or '' }}" required>
+      </div>
+      <div class="col-md-5">
+        <label>Prénom</label>
+        <input type="text" class="form-control" name="persons[0][prenom]" value="{{ cp.prenom or '' }}">
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <label>Date acquisition</label>
+        <input type="date" class="form-control" name="date_acquisition"
+               value="{{ cp.date_acquisition.strftime('%Y-%m-%d') if cp.date_acquisition else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label>N° lot principal</label>
+        <input type="text" class="form-control" name="lots[0][numero]" value="{{ cp.numero_lot or '' }}">
+      </div>
+      <div class="col-md-4">
+        <label>Nature lot</label>
+        <input type="text" class="form-control" name="lots[0][nature]" value="{{ cp.nature_lot or '' }}">
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label>Adresse</label>
+        <input type="text" class="form-control" name="adresse" value="{{ cp.adresse or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label>Code postal</label>
+        <input type="text" class="form-control" name="code_postal" value="{{ cp.code_postal or '' }}">
+      </div>
+      <div class="col-md-4">
+        <label>Ville</label>
+        <input type="text" class="form-control" name="ville" value="{{ cp.ville or '' }}">
+      </div>
+    </div>
+
+    {% set email_principal = cp.emails | selectattr('principal') | map(attribute='value') | first %}
+    {% set email_principal = email_principal or (cp.emails[0].value if cp.emails else cp.email) or '' %}
+    {% set tel_principal = cp.telephones | selectattr('principal') | map(attribute='value') | first %}
+    {% set tel_principal = tel_principal or (cp.telephones[0].value if cp.telephones else cp.telephone) or '' %}
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label>Email principal</label>
+        <input type="email" class="form-control" name="emails[0][value]"
+               value="{{ email_principal }}">
+        <input type="hidden" name="emails[0][principal]" value="1">
+      </div>
+      <div class="col-md-6">
+        <label>Téléphone principal</label>
+        <input type="text" class="form-control" name="telephones[0][value]"
+               value="{{ tel_principal }}">
+        <input type="hidden" name="telephones[0][principal]" value="1">
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <label>Statut</label>
+        <select class="form-select" name="statut_select" onchange="toggleLocataireEditInline(this)">
+          <option value="residence" {% if cp.est_residence_principale %}selected{% endif %}>Résidence principale</option>
+          <option value="loue" {% if cp.est_loue %}selected{% endif %}>Lot loué</option>
+          <option value="autre" {% if not cp.est_residence_principale and not cp.est_loue %}selected{% endif %}>Aucun des deux</option>
+        </select>
+        <input type="hidden" name="statut" id="statutHiddenEdit" value="{% if cp.est_residence_principale %}residence{% elif cp.est_loue %}loue{% else %}autre{% endif %}">
+        {% if cp.est_residence_principale %}<input type="hidden" name="est_residence_principale" value="on">{% endif %}
+        {% if cp.est_loue %}<input type="hidden" name="est_loue" value="on">{% endif %}
+      </div>
+    </div>
+
+    <div id="locataire-container-edit-inline" style="display: {% if cp.est_loue %}block{% else %}none{% endif %};">
+      <div class="row mb-3"><div class="col-md-12"><h6>Informations du locataire</h6></div></div>
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <select class="form-select" name="locataire_civilite_id">
+            <option value="">Civilité</option>
+            {% for c in civilites %}
+            <option value="{{ c.id }}" {% if cp.locataire_civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3"><input type="text" class="form-control" name="locataire_nom" value="{{ cp.locataire_nom or '' }}" placeholder="Nom"></div>
+        <div class="col-md-3"><input type="text" class="form-control" name="locataire_prenom" value="{{ cp.locataire_prenom or '' }}" placeholder="Prénom"></div>
+        <div class="col-md-3"><input type="email" class="form-control" name="locataire_email" value="{{ cp.locataire_email or '' }}" placeholder="Email"></div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-12"><input type="text" class="form-control" name="locataire_telephone" value="{{ cp.locataire_telephone or '' }}" placeholder="Téléphone"></div>
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label>Date mail accueil</label>
+        <input type="date" class="form-control" name="date_envoi_mail_accueil"
+               value="{{ cp.date_envoi_mail_accueil.strftime('%Y-%m-%d') if cp.date_envoi_mail_accueil else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label>Lien espace client</label>
+        <input type="text" class="form-control" name="lien_espace_client" value="{{ cp.lien_espace_client or '' }}">
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+    <button type="submit" class="btn btn-primary">Sauvegarder</button>
+  </div>
+</form>
+<script>
+function toggleLocataireEditInline(sel) {
+    document.getElementById('locataire-container-edit-inline').style.display = sel.value === 'loue' ? 'block' : 'none';
+    document.getElementById('statutHiddenEdit').value = sel.value;
+    const form = sel.closest('form');
+    let res = form.querySelector('input[name="est_residence_principale"]');
+    let loue = form.querySelector('input[name="est_loue"]');
+    if (!res) { res = document.createElement('input'); res.type='hidden'; res.name='est_residence_principale'; form.appendChild(res); }
+    if (!loue) { loue = document.createElement('input'); loue.type='hidden'; loue.name='est_loue'; form.appendChild(loue); }
+    res.value = (sel.value === 'residence') ? 'on' : '';
+    loue.value = (sel.value === 'loue') ? 'on' : '';
+    res.disabled = (sel.value !== 'residence');
+    loue.disabled = (sel.value !== 'loue');
+}
+</script>

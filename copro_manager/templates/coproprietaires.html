@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Copropriétaires - Copro Manager{% endblock %}
+
+{% block styles %}
+<style>
+    .copro-scroll-wrapper {
+        max-height: 75vh;
+        overflow: auto;
+        border: 1px solid #dee2e6;
+    }
+    .copro-scroll-wrapper thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #212529;
+    }
+    /* Première colonne (N° de copro) figée */
+    .copro-scroll-wrapper td:first-child,
+    .copro-scroll-wrapper th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        background-color: #f8f9fa;
+    }
+    .copro-scroll-wrapper thead th:first-child {
+        z-index: 15;
+        background-color: #495057;
+    }
+    .copro-group-header {
+        background-color: #e9ecef !important;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="display-4"><i class="fas fa-users"></i> Copropriétaires</h1>
+            <p class="lead">{{ coproprietaires|length }} copropriétaire(s) — triés par N° de copro</p>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCoproprietaireGlobalModal">
+                <i class="fas fa-plus"></i> Ajouter un copropriétaire
+            </button>
+            <a href="{{ url_for('coproprietaires_export') }}" class="btn btn-outline-success">
+                <i class="fas fa-file-excel"></i> Exporter Excel
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-5">
+        <form method="GET" action="{{ url_for('coproprietaires_page') }}" class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="coproSearch" name="q" class="form-control" placeholder="Rechercher (nom, email, adresse, ville...)" value="{{ search_query }}">
+            <select name="copro" class="form-select" style="max-width:160px;">
+                <option value="">Toutes les copros</option>
+                {% for c in copros %}
+                <option value="{{ c.numero }}" {% if filter_copro == c.numero|string %}selected{% endif %}>#{{ c.numero }} - {{ c.nom }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i></button>
+        </form>
+    </div>
+    <div class="col-md-7 text-end">
+        <span class="text-muted">Les copropriétaires sont groupés par N° de copro. Un copropriétaire ajouté depuis une fiche copropriété apparaît à la suite des copropriétaires de la même copropriété.</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if coproprietaires %}
+        <div class="table-responsive copro-scroll-wrapper">
+            <table class="table table-sm table-bordered table-hover align-middle" id="coproTable">
+                <thead class="table-dark text-white">
+                    <tr class="text-center">
+                        <th>N° de copro</th>
+                        <th>Civilité</th>
+                        <th>Nom</th>
+                        <th>Prénom</th>
+                        <th>Lots</th>
+                        <th>Adresse</th>
+                        <th>Code postal</th>
+                        <th>Ville</th>
+                        <th>Tél. principal</th>
+                        <th>Email principal</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set ns = namespace(current_num=None, first_of_group=True) %}
+                    {% for cp in coproprietaires %}
+                    {% set num = cp.copropriete.numero %}
+                    {% if num != ns.current_num %}
+                        {% set ns.current_num = num %}
+                        <tr class="copro-group-header" id="copro-group-{{ num }}">
+                            <td colspan="12">
+                                <i class="fas fa-building"></i> Copropriété #{{ num }} — {{ cp.copropriete.nom }}
+                                <a href="{{ url_for('copropriete', copro_id=cp.copropriete.id) }}" class="btn btn-sm btn-outline-primary ms-2">
+                                    <i class="fas fa-eye"></i> Voir la fiche
+                                </a>
+                            </td>
+                        </tr>
+                    {% endif %}
+                    <tr class="copro-row" data-search="{{ (cp.nom or '') }} {{ (cp.prenom or '') }} {{ (cp.email or '') }} {{ (cp.telephone or '') }} {{ (cp.adresse or '') }} {{ (cp.ville or '') }} {{ cp.copropriete.nom }}">
+                        <td class="fw-bold">{{ num }}</td>
+                        <td>{{ cp.civilite.libelle if cp.civilite else '' }}</td>
+                        <td>{{ cp.nom or '' }}</td>
+                        <td>{{ cp.prenom or '' }}</td>
+                        <td>
+                            {% if cp.lots %}
+                                {% for lot in cp.lots %}<div>{{ lot.numero }}{% if lot.nature %} <span class="text-muted">({{ lot.nature }})</span>{% endif %}</div>{% endfor %}
+                            {% else %}
+                                {{ cp.numero_lot or 'NC' }}
+                            {% endif %}
+                        </td>
+                        <td>{{ cp.adresse or '' }}</td>
+                        <td>{{ cp.code_postal or '' }}</td>
+                        <td>{{ cp.ville or '' }}</td>
+                        <td>
+                            {% if cp.telephones %}
+                                {{ cp.telephones | selectattr('principal') | map(attribute='value') | first or cp.telephones[0].value }}
+                            {% else %}
+                                {{ cp.telephone or '' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cp.emails %}
+                                {{ cp.emails | selectattr('principal') | map(attribute='value') | first or cp.emails[0].value }}
+                            {% else %}
+                                {{ cp.email or '' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cp.est_residence_principale %}
+                                <span class="badge bg-success">Résidence</span>
+                            {% elif cp.est_loue %}
+                                <span class="badge bg-warning text-dark">Loué</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Autre</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-warning" title="Modifier"
+                                        onclick="editCoproprietaireGlobal({{ cp.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('delete_coproprietaire', coproprietaire_id=cp.id) }}?from=coproprietaires">
+                                    <input type="hidden" name="from" value="coproprietaires">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Supprimer"
+                                            onclick="return confirm('⚠️ Supprimer ce copropriétaire ? Cette action est irréversible.');">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center text-muted py-5">Aucun copropriétaire. Cliquez sur « Ajouter un copropriétaire » pour en créer un, ou importez le fichier Copropriétaires.xlsx (import automatique au démarrage si la base est vide).</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ===================== MODAL AJOUT COPOPRIÉTAIRE (global) ===================== -->
+<div class="modal fade" id="addCoproprietaireGlobalModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('save_coproprietaire') }}">
+        <input type="hidden" name="from" value="coproprietaires">
+        <div class="modal-header">
+          <h5>Ajouter un copropriétaire</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Choix de la copropriété cible -->
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <label>Copropriété cible (N° de copro) <span class="text-danger">*</span></label>
+              <select class="form-select" name="copro_id" required>
+                {% for c in copros %}
+                <option value="{{ c.id }}">#{{ c.numero }} - {{ c.nom }} ({{ c.ville or '' }})</option>
+                {% endfor %}
+              </select>
+              <small class="text-muted">Le copropriétaire sera ajouté sous le dernier copropriétaire de cette copropriété.</small>
+            </div>
+          </div>
+
+          <!-- Personne (principal) -->
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <label>Personne</label>
+              <div id="persons-container-add-global">
+                <div class="row person-row mb-2">
+                  <div class="col-md-3">
+                    <select class="form-select" name="persons[0][civilite_id]">
+                      <option value="">Civilité</option>
+                      {% for c in civilites %}<option value="{{ c.id }}">{{ c.libelle }}</option>{% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <input type="text" class="form-control" name="persons[0][nom]" placeholder="Nom" required>
+                  </div>
+                  <div class="col-md-4">
+                    <input type="text" class="form-control" name="persons[0][prenom]" placeholder="Prénom">
+                  </div>
+                  <div class="col-md-1">
+                    <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label>Date acquisition</label>
+              <input type="date" class="form-control" name="date_acquisition">
+            </div>
+            <div class="col-md-3">
+              <label>N° lot principal</label>
+              <input type="text" class="form-control" name="lots[0][numero]" placeholder="N° lot">
+            </div>
+            <div class="col-md-3">
+              <label>Nature lot</label>
+              <input type="text" class="form-control" name="lots[0][nature]" placeholder="Nature">
+            </div>
+            <div class="col-md-3">
+              <label>Statut</label>
+              <select class="form-select" name="statut_select" onchange="toggleLocataireGlobal(this)">
+                <option value="residence">Résidence principale</option>
+                <option value="loue">Lot loué</option>
+                <option value="autre">Aucun des deux</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label>Adresse</label>
+              <input type="text" class="form-control" name="adresse" placeholder="Adresse postale">
+            </div>
+            <div class="col-md-2">
+              <label>Code postal</label>
+              <input type="text" class="form-control" name="code_postal" placeholder="CP">
+            </div>
+            <div class="col-md-4">
+              <label>Ville</label>
+              <input type="text" class="form-control" name="ville" placeholder="Ville">
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label>Email principal</label>
+              <input type="email" class="form-control" name="emails[0][value]" placeholder="Email">
+              <input type="hidden" name="emails[0][principal]" value="1">
+            </div>
+            <div class="col-md-6">
+              <label>Téléphone principal</label>
+              <input type="text" class="form-control" name="telephones[0][value]" placeholder="Téléphone">
+              <input type="hidden" name="telephones[0][principal]" value="1">
+            </div>
+          </div>
+
+          <!-- Champ caché pour le statut (format attendu par save_coproprietaire) -->
+          <input type="hidden" id="statutHiddenAdd" name="statut" value="residence">
+
+          <!-- Locataire (si Lot loué) -->
+          <div id="locataire-container-add-global" style="display:none;">
+            <div class="row mb-3">
+              <div class="col-md-12"><h6>Informations du locataire</h6></div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-3">
+                <select class="form-select" name="locataire_civilite_id">
+                  <option value="">Civilité</option>
+                  {% for c in civilites %}<option value="{{ c.id }}">{{ c.libelle }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3"><input type="text" class="form-control" name="locataire_nom" placeholder="Nom"></div>
+              <div class="col-md-3"><input type="text" class="form-control" name="locataire_prenom" placeholder="Prénom"></div>
+              <div class="col-md-3"><input type="email" class="form-control" name="locataire_email" placeholder="Email"></div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-12"><input type="text" class="form-control" name="locataire_telephone" placeholder="Téléphone"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL ÉDITION (chargé dynamiquement) ===================== -->
+<div class="modal fade" id="editCoproprietaireGlobalModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content" id="editCoproprietaireGlobalContent">
+      <!-- Contenu chargé via AJAX depuis la fiche copropriété -->
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleLocataireGlobal(sel) {
+    const cont = document.getElementById('locataire-container-add-global');
+    cont.style.display = sel.value === 'loue' ? 'block' : 'none';
+    // Synchronise le champ caché attendu par save_coproprietaire
+    document.getElementById('statutHiddenAdd').value = sel.value;
+    // Active les checkboxes attendues par save_coproprietaire
+    const form = sel.closest('form');
+    // save_coproprietaire lit est_residence_principale/est_loue via présence des clés checkbox;
+    // on les gère via champs cachés ci-dessous.
+    updateStatutHidden(form, sel.value);
+}
+
+function updateStatutHidden(form, val) {
+    let res = form.querySelector('input[name="est_residence_principale"]');
+    let loue = form.querySelector('input[name="est_loue"]');
+    if (!res) { res = document.createElement('input'); res.type='hidden'; res.name='est_residence_principale'; form.appendChild(res); }
+    if (!loue) { loue = document.createElement('input'); loue.type='hidden'; loue.name='est_loue'; form.appendChild(loue); }
+    res.value = (val === 'residence') ? 'on' : '';
+    loue.value = (val === 'loue') ? 'on' : '';
+    // Les checkbox ne s'envoient que si cochées ; on retire pour éviter doublons
+    res.disabled = (val !== 'residence');
+    loue.disabled = (val !== 'loue');
+}
+
+// Initialisation au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    const addForm = document.querySelector('#addCoproprietaireGlobalModal form');
+    if (addForm) {
+        const sel = addForm.querySelector('select[name="statut_select"]');
+        if (sel) updateStatutHidden(addForm, sel.value);
+    }
+    // Recherche live (filtre les lignes, sans requête serveur)
+    const search = document.getElementById('coproSearch');
+    if (search) {
+        search.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            let lastGroupVisible = false;
+            document.querySelectorAll('#coproTable tbody tr').forEach(function(tr) {
+                if (tr.classList.contains('copro-group-header')) {
+                    tr.style.display = 'none';
+                    lastGroupVisible = false;
+                    return;
+                }
+                const match = (tr.getAttribute('data-search') || '').toLowerCase().includes(q);
+                tr.style.display = match ? '' : 'none';
+                if (match) lastGroupVisible = true;
+            });
+            // Réaffiche les groupes ayant au moins une ligne visible
+            let currentGroup = null;
+            document.querySelectorAll('#coproTable tbody tr').forEach(function(tr) {
+                if (tr.classList.contains('copro-group-header')) {
+                    currentGroup = tr;
+                    currentGroup._hasVisible = false;
+                } else if (tr.style.display !== 'none' && currentGroup) {
+                    currentGroup._hasVisible = true;
+                }
+            });
+            document.querySelectorAll('#coproTable tbody tr.copro-group-header').forEach(function(tr) {
+                if (tr._hasVisible) tr.style.display = '';
+            });
+        });
+    }
+});
+
+// Édition : charge le contenu de la modale d'édition depuis la fiche copropriété
+function editCoproprietaireGlobal(cpId) {
+    fetch('/coproprietaire/' + cpId + '/edit-inline')
+        .then(r => { if (!r.ok) throw new Error('chargement impossible'); return r.text(); })
+        .then(html => {
+            document.getElementById('editCoproprietaireGlobalContent').innerHTML = html;
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCoproprietaireGlobalModal'));
+            modal.show();
+        })
+        .catch(err => alert('Impossible de charger le formulaire de modification : ' + err));
+}
+</script>
+{% endblock %}

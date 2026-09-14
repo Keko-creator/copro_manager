@@ -100,6 +100,11 @@ class Coproprietaire(db.Model):
     est_loue = db.Column(db.Boolean, default=False)
     date_envoi_mail_accueil = db.Column(db.Date)
     lien_espace_client = db.Column(db.String(500))
+    # Adresse postale du copropriétaire (pour correspondre au fichier Excel
+    # « Copropriétaires.xlsx » et à l'onglet Copropriétaires).
+    adresse = db.Column(db.String(300))
+    code_postal = db.Column(db.String(20))
+    ville = db.Column(db.String(100))
 
     locataire_nom = db.Column(db.String(100))
     locataire_civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
@@ -765,7 +770,140 @@ def delete_coproprietaire(coproprietaire_id):
     db.session.delete(coproprietaire)
     db.session.commit()
     flash('Copropriétaire supprimé avec succès !', 'success')
+    if request.form.get('from') == 'coproprietaires' or request.args.get('from') == 'coproprietaires':
+        return redirect(url_for('coproprietaires_page'))
     return redirect(url_for('copropriete', copro_id=copro_id))
+
+# ========== ONGLET COPROPRIÉTAIRES (vue globale) ==========
+@app.route('/coproprietaires', endpoint='coproprietaires_page')
+def coproprietaires_page():
+    """Tableau dynamique de tous les copropriétaires, groupés par N° de copro."""
+    search_query = request.args.get('q', '').strip()
+    filter_copro = request.args.get('copro', '').strip()
+
+    query = Coproprietaire.query.join(Copropriete)
+    if filter_copro:
+        try:
+            num = int(filter_copro)
+            query = query.filter(Copropriete.numero == num)
+        except (ValueError, TypeError):
+            query = query.filter(Copropriete.nom.ilike(f'%{filter_copro}%'))
+    if search_query:
+        like = f'%{search_query}%'
+        query = query.filter(
+            db.or_(
+                Coproprietaire.nom.ilike(like),
+                Coproprietaire.prenom.ilike(like),
+                Coproprietaire.email.ilike(like),
+                Coproprietaire.telephone.ilike(like),
+                Coproprietaire.adresse.ilike(like),
+                Coproprietaire.ville.ilike(like),
+                Copropriete.nom.ilike(like),
+            )
+        )
+    # Tri par N° de copro puis par id d'insertion : un copropriétaire ajouté
+    # depuis la fiche copropriété apparaît après les copropriétaires existants
+    # de la même copropriété (id croissant).
+    query = query.order_by(Copropriete.numero, Coproprietaire.id)
+    coproprietaires = query.all()
+
+    copros = Copropriete.query.order_by(Copropriete.numero).all()
+    civilites = Civilite.query.all()
+    return render_template(
+        'coproprietaires.html',
+        coproprietaires=coproprietaires,
+        copros=copros,
+        civilites=civilites,
+        search_query=search_query,
+        filter_copro=filter_copro,
+    )
+
+
+@app.route('/coproprietaires/export', endpoint='coproprietaires_export')
+def coproprietaires_export():
+    """Exporte le tableau de l'onglet Copropriétaires en fichier Excel (.xlsx)."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    query = Coproprietaire.query.join(Copropriete).order_by(Copropriete.numero, Coproprietaire.id)
+    coproprietaires = query.all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Copropriétaires"
+
+    headers = [
+        'N° de copro', 'Civilité', 'Nom', 'Prénom', 'Lots',
+        'Adresse', 'Code postal', 'Ville',
+        'Téléphones Principal', 'Téléphone Secondaire', 'Emails Principal',
+    ]
+    gras_blanc = Font(bold=True, color="FFFFFF")
+    fond = PatternFill(start_color="212529", end_color="212529", fill_type="solid")
+    bordure = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"))
+    centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for c, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=c, value=h)
+        cell.font = gras_blanc
+        cell.fill = fond
+        cell.alignment = centre
+        cell.border = bordure
+
+    ligne = 2
+    for cp in coproprietaires:
+        lots_str = ', '.join(
+            f"{lot.numero}{(' ' + lot.nature) if lot.nature else ''}" for lot in cp.lots
+        ) or (cp.numero_lot or 'NC')
+        email_principal = next((e.value for e in cp.emails if e.principal), None) or cp.email or ''
+        email_secondaire = ', '.join(e.value for e in cp.emails if not e.principal)
+        tel_principal = next((t.value for t in cp.telephones if t.principal), None) or cp.telephone or ''
+        tel_secondaire = ', '.join(t.value for t in cp.telephones if not t.principal)
+        valeurs = [
+            cp.copropriete.numero,
+            cp.civilite.libelle if cp.civilite else '',
+            cp.nom or '',
+            cp.prenom or '',
+            lots_str,
+            cp.adresse or '',
+            cp.code_postal or '',
+            cp.ville or '',
+            tel_principal,
+            tel_secondaire,
+            email_principal,
+        ]
+        for c, v in enumerate(valeurs, start=1):
+            cell = ws.cell(row=ligne, column=c, value=v)
+            cell.border = bordure
+        ligne += 1
+
+    largeurs = [12, 20, 24, 24, 18, 30, 12, 18, 22, 22, 30]
+    for c, w in enumerate(largeurs, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = w
+    ws.freeze_panes = "A2"
+
+    nom_fichier = f"coproprietaires_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    tampon.seek(0)
+    return send_file(
+        tampon,
+        as_attachment=True,
+        download_name=nom_fichier,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@app.route('/coproprietaire/<int:coproprietaire_id>/edit-inline', endpoint='coproprietaire_edit_inline')
+def coproprietaire_edit_inline(coproprietaire_id):
+    """Renvoie le contenu HTML d'une modale d'édition d'un copropriétaire,
+    destiné à être chargé en AJAX depuis l'onglet Copropriétaires.
+    """
+    cp = Coproprietaire.query.get_or_404(coproprietaire_id)
+    civilites = Civilite.query.all()
+    return render_template('coproprietaire_edit_inline.html', cp=cp, civilites=civilites)
+
 
 @app.route('/copropriete/new', methods=['GET', 'POST'])
 def new_copropriete():
@@ -1031,6 +1169,9 @@ def save_coproprietaire():
         cp.civilite_id = civilite_id
         cp.locataire_civilite_id = locataire_civilite_id
         cp.locataire_telephone = locataire_telephone
+        cp.adresse = request.form.get('adresse')
+        cp.code_postal = request.form.get('code_postal')
+        cp.ville = request.form.get('ville')
 
         cp.lots = [LotCoproprietaire(numero=lot['numero'], nature=lot['nature']) for lot in lots_data]
         cp.emails = [EmailCoproprietaire(value=email['value'], principal=email['principal']) for email in emails_data]
@@ -1044,6 +1185,8 @@ def save_coproprietaire():
         flash(f"Erreur lors de la sauvegarde : {str(e)}", "error")
         app.logger.error(f"Erreur: {str(e)}")
 
+    if request.form.get('from') == 'coproprietaires':
+        return redirect(url_for('coproprietaires_page'))
     return redirect(url_for('copropriete', copro_id=copro_id))
 
 # ========== AG ROUTES ==========
@@ -1112,10 +1255,103 @@ def delete_resolution(resolution_id):
     flash('Résolution supprimée avec succès !', 'success')
     return redirect(url_for('copropriete', copro_id=copro_id))
 
+def _migrer_colonnes_coproprietaires():
+    """Ajoute les colonnes adresse/code_postal/ville à la table des
+    copropriétaires si elles manquent (db.create_all ne modifie pas une
+    table existante). Compatible avec les noms de table « coproprietaire »
+    et « coproprietaires ».
+    """
+    from sqlalchemy import inspect, text
+    engine = db.engine
+    insp = inspect(engine)
+    tables = insp.get_table_names()
+    table = 'coproprietaire' if 'coproprietaire' in tables else 'coproprietaires'
+    if table not in tables:
+        return
+    cols = {c['name'] for c in insp.get_columns(table)}
+    with engine.begin() as conn:
+        if 'adresse' not in cols:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN adresse VARCHAR(300)"))
+        if 'code_postal' not in cols:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN code_postal VARCHAR(20)"))
+        if 'ville' not in cols:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN ville VARCHAR(100)"))
+
+
+def _importer_coproprietaires_excel():
+    """Importe les copropriétaires du fichier Copropriétaires.xlsx (une
+    seule fois, si la table est vide). Associe chaque ligne à la copropriété
+    dont le numéro correspond à la colonne « N° de copro ».
+    """
+    import openpyxl
+    if Coproprietaire.query.count() > 0:
+        return
+    chemin = os.path.join(os.path.dirname(__file__), 'Copropriétaires.xlsx')
+    if not os.path.exists(chemin):
+        return
+    try:
+        wb = openpyxl.load_workbook(chemin, data_only=True, read_only=True)
+    except Exception as e:
+        app.logger.warning(f"Impossible de lire Copropriétaires.xlsx : {e}")
+        return
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    headers = next(rows, None)
+    if not headers:
+        return
+    idx = {h: i for i, h in enumerate(headers) if h}
+
+    copros = {c.numero: c for c in Copropriete.query.all()}
+    civilites = {c.libelle: c for c in Civilite.query.all()}
+
+    def val(row, name):
+        i = idx.get(name)
+        if i is None or i >= len(row):
+            return None
+        v = row[i]
+        return None if v is None else str(v).strip()
+
+    nb = 0
+    for row in rows:
+        numero_copro = val(row, 'N° de copro')
+        if not numero_copro:
+            continue
+        try:
+            numero_copro = int(float(numero_copro))
+        except (ValueError, TypeError):
+            continue
+        copro = copros.get(numero_copro)
+        if not copro:
+            continue
+        civilite_lib = val(row, 'Civilité')
+        civilite = civilites.get(civilite_lib) if civilite_lib else None
+        lots_str = val(row, 'Lots') or ''
+        cp = Coproprietaire(
+            copropriete_id=copro.id,
+            civilite_id=civilite.id if civilite else None,
+            nom=val(row, 'Nom'),
+            prenom=val(row, 'Prénom'),
+            adresse=val(row, 'Adresse'),
+            code_postal=str(val(row, 'Code postal')) if val(row, 'Code postal') else None,
+            ville=val(row, 'Ville'),
+            telephone=val(row, 'Téléphones Principal'),
+            email=val(row, 'Emails Principal'),
+        )
+        premier_lot = next((p.strip() for p in lots_str.replace(';', ',').split(',') if p.strip()), None)
+        if premier_lot and premier_lot.upper() != 'NC':
+            cp.numero_lot = premier_lot
+        db.session.add(cp)
+        nb += 1
+    db.session.commit()
+    if nb:
+        app.logger.info(f"{nb} copropriétaires importés depuis Copropriétaires.xlsx")
+
+
 # ========== MAIN ==========
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        _migrer_colonnes_coproprietaires()
 
         # Initialiser les civilités si elles n'existent pas
         civilites_data = ["Monsieur", "Madame", "Monsieur et Madame", "Société"]
@@ -1142,5 +1378,8 @@ if __name__ == '__main__':
                 )
                 db.session.add(copro)
             db.session.commit()
+
+        # Importer les copropriétaires depuis le fichier Excel (une fois)
+        _importer_coproprietaires_excel()
 
     app.run(debug=True, host='0.0.0.0', port=5000)
