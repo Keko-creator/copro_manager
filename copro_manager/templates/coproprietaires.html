@@ -488,12 +488,103 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Édition : charge le contenu de la modale d'édition depuis la fiche copropriété
+// Édition : charge le contenu de la modale d'édition, puis attache les
+// gestionnaires d'événements (les <script> insérés via innerHTML ne
+// s'exécutent pas, on branche donc tout ici).
+const CIVILITES_EDIT = [{% for c in civilites %}{id:{{ c.id }},lib:'{{ c.libelle|replace("'", "\\'") }}'}{% if not loop.last %},{% endif %}{% endfor %}];
+
+function editAddRow(container, kind, cpId) {
+    const rows = container.querySelectorAll('.row');
+    const i = rows.length;
+    let opts = '<option value="">Civilité</option>';
+    CIVILITES_EDIT.forEach(function(c){ opts += '<option value="'+c.id+'">'+c.lib+'</option>'; });
+    let html = '';
+    if (kind === 'person') {
+        html = '<div class="row person-row mb-2">' +
+          '<div class="col-md-3"><select class="form-select" name="persons['+i+'][civilite_id]">'+opts+'</select></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control" name="persons['+i+'][nom]" placeholder="Nom" required></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control" name="persons['+i+'][prenom]" placeholder="Prénom"></div>' +
+          '<div class="col-md-1"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    } else if (kind === 'lot') {
+        html = '<div class="row lot-row mb-2">' +
+          '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][numero]" placeholder="N° lot"></div>' +
+          '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][nature]" placeholder="Nature lot"></div>' +
+          '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    } else if (kind === 'email') {
+        html = '<div class="row contact-row mb-2">' +
+          '<div class="col-md-6"><input type="email" class="form-control" name="emails['+i+'][value]" placeholder="Email"></div>' +
+          '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input edit-email-principal" name="emails['+i+'][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
+          '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    } else if (kind === 'phone') {
+        html = '<div class="row contact-row mb-2">' +
+          '<div class="col-md-6"><input type="text" class="form-control" name="telephones['+i+'][value]" placeholder="Téléphone"></div>' +
+          '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input edit-phone-principal" name="telephones['+i+'][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
+          '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    }
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const newRow = div.firstElementChild;
+    container.appendChild(newRow);
+    if (kind === 'email') {
+        newRow.querySelector('.edit-email-principal').addEventListener('change', function(){ if(this.checked){ container.querySelectorAll('.edit-email-principal').forEach(cb=>{ if(cb!==this) cb.checked=false; }); } });
+    } else if (kind === 'phone') {
+        newRow.querySelector('.edit-phone-principal').addEventListener('change', function(){ if(this.checked){ container.querySelectorAll('.edit-phone-principal').forEach(cb=>{ if(cb!==this) cb.checked=false; }); } });
+    }
+}
+
+// Rend inlineAddRow utilisable par les boutons « + Ajouter » de la modale d'édition
+window.inlineAddRow = function(containerId, kind) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const cpId = containerId.split('-').pop();
+    editAddRow(container, kind, cpId);
+};
+
+function attachEditModalHandlers(cpId) {
+    const modal = document.getElementById('editCoproprietaireGlobalContent');
+    if (!modal) return;
+
+    // Statut -> affichage du locataire
+    modal.querySelectorAll('.inline-statut').forEach(function(r){
+        r.addEventListener('change', function(){
+            const cont = document.getElementById('locataire-container-edit-' + cpId);
+            if (cont) cont.style.display = this.value === 'loue' ? 'block' : 'none';
+        });
+    });
+
+    // Checkboxes principal (un seul) pour la modale d'édition
+    modal.querySelectorAll('.edit-email-principal').forEach(function(cb){
+        cb.addEventListener('change', function(){
+            if (this.checked) {
+                const c = this.closest('[id^="emails-container"]');
+                if (c) c.querySelectorAll('.edit-email-principal').forEach(x=>{ if(x!==cb) x.checked=false; });
+            }
+        });
+    });
+    modal.querySelectorAll('.edit-phone-principal').forEach(function(cb){
+        cb.addEventListener('change', function(){
+            if (this.checked) {
+                const c = this.closest('[id^="telephones-container"]');
+                if (c) c.querySelectorAll('.edit-phone-principal').forEach(x=>{ if(x!==cb) x.checked=false; });
+            }
+        });
+    });
+
+    // Boutons « × » de suppression de ligne (la délégation globale gère aussi,
+    // mais on s'assure qu'elle fonctionne dans la modale chargée dynamiquement)
+}
+
 function editCoproprietaireGlobal(cpId) {
     fetch('/coproprietaire/' + cpId + '/edit-inline')
         .then(r => { if (!r.ok) throw new Error('chargement impossible'); return r.text(); })
         .then(html => {
-            document.getElementById('editCoproprietaireGlobalContent').innerHTML = html;
+            const content = document.getElementById('editCoproprietaireGlobalContent');
+            content.innerHTML = html;
+            attachEditModalHandlers(cpId);
             const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editCoproprietaireGlobalModal'));
             modal.show();
         })
