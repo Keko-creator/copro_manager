@@ -95,6 +95,12 @@ class Coproprietaire(db.Model):
     date_envoi_mail_accueil = db.Column(db.Date)
     lien_espace_client = db.Column(db.String(500))
 
+    # Adresse postale du copropriétaire (pour correspondre au fichier Excel
+    # « Copropriétaires.xlsx » et à l'onglet Copropriétaires).
+    adresse = db.Column(db.String(300))
+    code_postal = db.Column(db.String(20))
+    ville = db.Column(db.String(100))
+
     locataire_civilite_id = db.Column(db.Integer, db.ForeignKey('civilites.id'), nullable=True)
     locataire_nom = db.Column(db.String(100))
     locataire_prenom = db.Column(db.String(100))
