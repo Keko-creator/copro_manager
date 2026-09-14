@@ -198,10 +198,10 @@
             </div>
           </div>
 
-          <!-- Personne (principal) -->
+          <!-- Personnes (plusieurs) -->
           <div class="row mb-3">
             <div class="col-md-12">
-              <label>Personne</label>
+              <label>Personnes</label>
               <div id="persons-container-add-global">
                 <div class="row person-row mb-2">
                   <div class="col-md-3">
@@ -221,23 +221,16 @@
                   </div>
                 </div>
               </div>
+              <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="globalAddRow('persons-container-add-global','person')">+ Ajouter une personne</button>
             </div>
           </div>
 
           <div class="row mb-3">
-            <div class="col-md-3">
+            <div class="col-md-6">
               <label>Date acquisition</label>
               <input type="date" class="form-control" name="date_acquisition">
             </div>
-            <div class="col-md-3">
-              <label>N° lot principal</label>
-              <input type="text" class="form-control" name="lots[0][numero]" placeholder="N° lot">
-            </div>
-            <div class="col-md-3">
-              <label>Nature lot</label>
-              <input type="text" class="form-control" name="lots[0][nature]" placeholder="Nature">
-            </div>
-            <div class="col-md-3">
+            <div class="col-md-6">
               <label>Statut</label>
               <select class="form-select" name="statut_select" onchange="toggleLocataireGlobal(this)">
                 <option value="residence">Résidence principale</option>
@@ -247,6 +240,7 @@
             </div>
           </div>
 
+          <!-- ADRESSE POSTALE -->
           <div class="row mb-3">
             <div class="col-md-6">
               <label>Adresse</label>
@@ -262,16 +256,72 @@
             </div>
           </div>
 
+          <!-- LOTS (plusieurs) -->
           <div class="row mb-3">
-            <div class="col-md-6">
-              <label>Email principal</label>
-              <input type="email" class="form-control" name="emails[0][value]" placeholder="Email">
-              <input type="hidden" name="emails[0][principal]" value="1">
+            <div class="col-md-12">
+              <label>Lots</label>
+              <div id="lots-container-add-global">
+                <div class="row lot-row mb-2">
+                  <div class="col-md-5">
+                    <input type="text" class="form-control" name="lots[0][numero]" placeholder="N° lot" required>
+                  </div>
+                  <div class="col-md-5">
+                    <input type="text" class="form-control" name="lots[0][nature]" placeholder="Nature lot">
+                  </div>
+                  <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="globalAddRow('lots-container-add-global','lot')">+ Ajouter un lot</button>
             </div>
-            <div class="col-md-6">
-              <label>Téléphone principal</label>
-              <input type="text" class="form-control" name="telephones[0][value]" placeholder="Téléphone">
-              <input type="hidden" name="telephones[0][principal]" value="1">
+          </div>
+
+          <!-- EMAILS (plusieurs) -->
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <label>Emails</label>
+              <div id="emails-container-add-global">
+                <div class="row contact-row mb-2">
+                  <div class="col-md-6">
+                    <input type="email" class="form-control" name="emails[0][value]" placeholder="Email">
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check mt-2">
+                      <input type="checkbox" class="form-check-input global-email-principal" name="emails[0][principal]" value="1" checked>
+                      <label class="form-check-label">Principal</label>
+                    </div>
+                  </div>
+                  <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="globalAddRow('emails-container-add-global','email')">+ Ajouter un email</button>
+            </div>
+          </div>
+
+          <!-- TÉLÉPHONES (plusieurs) -->
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <label>Téléphones</label>
+              <div id="telephones-container-add-global">
+                <div class="row contact-row mb-2">
+                  <div class="col-md-6">
+                    <input type="text" class="form-control" name="telephones[0][value]" placeholder="Téléphone">
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check mt-2">
+                      <input type="checkbox" class="form-check-input global-phone-principal" name="telephones[0][principal]" value="1" checked>
+                      <label class="form-check-label">Principal</label>
+                    </div>
+                  </div>
+                  <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="globalAddRow('telephones-container-add-global','phone')">+ Ajouter un téléphone</button>
             </div>
           </div>
 
@@ -321,12 +371,8 @@
 function toggleLocataireGlobal(sel) {
     const cont = document.getElementById('locataire-container-add-global');
     cont.style.display = sel.value === 'loue' ? 'block' : 'none';
-    // Synchronise le champ caché attendu par save_coproprietaire
     document.getElementById('statutHiddenAdd').value = sel.value;
-    // Active les checkboxes attendues par save_coproprietaire
     const form = sel.closest('form');
-    // save_coproprietaire lit est_residence_principale/est_loue via présence des clés checkbox;
-    // on les gère via champs cachés ci-dessous.
     updateStatutHidden(form, sel.value);
 }
 
@@ -337,10 +383,70 @@ function updateStatutHidden(form, val) {
     if (!loue) { loue = document.createElement('input'); loue.type='hidden'; loue.name='est_loue'; form.appendChild(loue); }
     res.value = (val === 'residence') ? 'on' : '';
     loue.value = (val === 'loue') ? 'on' : '';
-    // Les checkbox ne s'envoient que si cochées ; on retire pour éviter doublons
     res.disabled = (val !== 'residence');
     loue.disabled = (val !== 'loue');
 }
+
+function globalAddRow(containerId, kind) {
+    const container = document.getElementById(containerId);
+    const rows = container.querySelectorAll('.row');
+    const i = rows.length;
+    const cs = [{% for c in civilites %}{id:{{ c.id }},lib:'{{ c.libelle }}'}{% if not loop.last %},{% endif %}{% endfor %}];
+    let opts = '<option value="">Civilité</option>';
+    cs.forEach(function(c){ opts += '<option value="'+c.id+'">'+c.lib+'</option>'; });
+    let html = '';
+    if (kind === 'person') {
+        html = '<div class="row person-row mb-2">' +
+          '<div class="col-md-3"><select class="form-select" name="persons['+i+'][civilite_id]">'+opts+'</select></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control" name="persons['+i+'][nom]" placeholder="Nom" required></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control" name="persons['+i+'][prenom]" placeholder="Prénom"></div>' +
+          '<div class="col-md-1"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    } else if (kind === 'lot') {
+        html = '<div class="row lot-row mb-2">' +
+          '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][numero]" placeholder="N° lot"></div>' +
+          '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][nature]" placeholder="Nature lot"></div>' +
+          '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    } else if (kind === 'email') {
+        html = '<div class="row contact-row mb-2">' +
+          '<div class="col-md-6"><input type="email" class="form-control" name="emails['+i+'][value]" placeholder="Email"></div>' +
+          '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input global-email-principal" name="emails['+i+'][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
+          '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    } else if (kind === 'phone') {
+        html = '<div class="row contact-row mb-2">' +
+          '<div class="col-md-6"><input type="text" class="form-control" name="telephones['+i+'][value]" placeholder="Téléphone"></div>' +
+          '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input global-phone-principal" name="telephones['+i+'][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
+          '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+          '</div>';
+    }
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const newRow = div.firstElementChild;
+    container.appendChild(newRow);
+    if (kind === 'email') {
+        newRow.querySelector('.global-email-principal').addEventListener('change', function(){ if(this.checked){ container.querySelectorAll('.global-email-principal').forEach(cb=>{ if(cb!==this) cb.checked=false; }); } });
+    } else if (kind === 'phone') {
+        newRow.querySelector('.global-phone-principal').addEventListener('change', function(){ if(this.checked){ container.querySelectorAll('.global-phone-principal').forEach(cb=>{ if(cb!==this) cb.checked=false; }); } });
+    }
+}
+
+// Suppression de ligne + checkbox principal (modale d'ajout)
+document.addEventListener('click', function(e){
+    if (e.target.classList.contains('remove-row-btn')) {
+        const row = e.target.closest('.row');
+        const container = row.parentElement;
+        if (container.querySelectorAll('.row').length > 1) row.remove();
+        else alert("Vous devez avoir au moins une ligne.");
+    }
+});
+document.querySelectorAll('.global-email-principal').forEach(cb=>{
+    cb.addEventListener('change', function(){ if(this.checked){ const c=this.closest('[id^="emails-container"]'); c.querySelectorAll('.global-email-principal').forEach(x=>{ if(x!==this) x.checked=false; }); } });
+});
+document.querySelectorAll('.global-phone-principal').forEach(cb=>{
+    cb.addEventListener('change', function(){ if(this.checked){ const c=this.closest('[id^="telephones-container"]'); c.querySelectorAll('.global-phone-principal').forEach(x=>{ if(x!==this) x.checked=false; }); } });
+});
 
 // Initialisation au chargement
 document.addEventListener('DOMContentLoaded', function() {

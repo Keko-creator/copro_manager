@@ -222,6 +222,7 @@
                         <th>Nom</th>
                         <th>Prénom</th>
                         <th>Lots</th>
+                        <th>Adresse</th>
                         <th>Emails</th>
                         <th>Téléphones</th>
                         <th>Statut</th>
@@ -232,7 +233,7 @@
                 <tbody>
                     {% for cp in coproprietaires %}
                     <tr>
-                        <td>{{ cp.civilite.libelle if cp.civilite else 'NONE' }}</td>
+                        <td>{{ cp.civilite.libelle if cp.civilite else '' }}</td>
                         <td>{{ cp.nom }}</td>
                         <td>{{ cp.prenom }}</td>
 
@@ -246,6 +247,13 @@
                             {% else %}
                                 {{ cp.numero_lot or 'Aucun' }}
                             {% endif %}
+                        </td>
+
+                        <!-- Adresse -->
+                        <td>
+                            {% if cp.adresse %}{{ cp.adresse }}{% endif %}
+                            {% if cp.code_postal or cp.ville %}<br>
+                            <small>{{ cp.code_postal or '' }} {{ cp.ville or '' }}</small>{% endif %}
                         </td>
 
                         <!-- Emails -->

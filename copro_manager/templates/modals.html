@@ -72,7 +72,7 @@
               <div id="persons-container-add">
                 <div class="row person-row mb-2">
                   <div class="col-md-3">
-                    <select class="form-select" name="persons[0][civilite_id]" required>
+                    <select class="form-select" name="persons[0][civilite_id]">
                       <option value="">Civilité</option>
                       {% for c in Civilite.query.all() %}
                       <option value="{{ c.id }}">{{ c.libelle }}</option>
@@ -98,6 +98,22 @@
             <div class="col-md-12">
               <label>Date acquisition</label>
               <input type="date" class="form-control" name="date_acquisition">
+            </div>
+          </div>
+
+          <!-- ADRESSE POSTALE -->
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label>Adresse</label>
+              <input type="text" class="form-control" name="adresse" placeholder="Adresse postale">
+            </div>
+            <div class="col-md-2">
+              <label>Code postal</label>
+              <input type="text" class="form-control" name="code_postal" placeholder="CP">
+            </div>
+            <div class="col-md-4">
+              <label>Ville</label>
+              <input type="text" class="form-control" name="ville" placeholder="Ville">
             </div>
           </div>
 
@@ -388,7 +404,7 @@
                   {% for person in cp.persons %}
                   <div class="row person-row mb-2">
                     <div class="col-md-3">
-                      <select class="form-select" name="persons[{{ loop.index0 }}][civilite_id]" required>
+                      <select class="form-select" name="persons[{{ loop.index0 }}][civilite_id]">
                         <option value="">Civilité</option>
                         {% for c in civilites %}
                         <option value="{{ c.id }}" {% if person.civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
@@ -409,10 +425,10 @@
                 {% else %}
                   <div class="row person-row mb-2">
                     <div class="col-md-3">
-                      <select class="form-select" name="persons[0][civilite_id]" required>
+                      <select class="form-select" name="persons[0][civilite_id]">
                         <option value="">Civilité</option>
                         {% for c in civilites %}
-                        <option value="{{ c.id }}">{{ c.libelle }}</option>
+                        <option value="{{ c.id }}" {% if cp.civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
                         {% endfor %}
                       </select>
                     </div>
@@ -438,6 +454,22 @@
               <label>Date acquisition</label>
               <input type="date" class="form-control" name="date_acquisition"
                      value="{{ cp.date_acquisition.strftime('%Y-%m-%d') if cp.date_acquisition else '' }}">
+            </div>
+          </div>
+
+          <!-- ADRESSE POSTALE -->
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label>Adresse</label>
+              <input type="text" class="form-control" name="adresse" value="{{ cp.adresse or '' }}" placeholder="Adresse postale">
+            </div>
+            <div class="col-md-2">
+              <label>Code postal</label>
+              <input type="text" class="form-control" name="code_postal" value="{{ cp.code_postal or '' }}" placeholder="CP">
+            </div>
+            <div class="col-md-4">
+              <label>Ville</label>
+              <input type="text" class="form-control" name="ville" value="{{ cp.ville or '' }}" placeholder="Ville">
             </div>
           </div>
 
