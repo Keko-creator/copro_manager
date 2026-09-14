@@ -1077,8 +1077,23 @@ def save_coproprietaire():
     prenom = request.form.get('persons[0][prenom]') or request.form.get('prenom')
     civilite_id = request.form.get('persons[0][civilite_id]') or request.form.get('civilite_id')
     date_acquisition = parse_date(request.form.get('date_acquisition'))
-    est_residence_principale = 'est_residence_principale' in request.form
-    est_loue = 'est_loue' in request.form
+    statut = request.form.get('statut')
+    # Compatibilité : la fiche copropriété utilise des radios « statut »
+    # (residence/loue/autre), tandis que d'autres formulaires utilisent des
+    # champs cachés est_residence_principale/est_loue. On déduit le statut
+    # depuis les deux formats.
+    if 'est_residence_principale' in request.form:
+        est_residence_principale = True
+    elif statut == 'residence':
+        est_residence_principale = True
+    else:
+        est_residence_principale = False
+    if 'est_loue' in request.form:
+        est_loue = True
+    elif statut == 'loue':
+        est_loue = True
+    else:
+        est_loue = False
     date_envoi_mail_accueil = parse_date(request.form.get('date_envoi_mail_accueil'))
     lien_espace_client = request.form.get('lien_espace_client')
 
@@ -1162,7 +1177,10 @@ def save_coproprietaire():
         cp.est_residence_principale = est_residence_principale
         cp.est_loue = est_loue
         cp.date_envoi_mail_accueil = date_envoi_mail_accueil
-        cp.lien_espace_client = lien_espace_client
+        # Conserve le lien espace client existant si le champ n'est pas
+        # soumis (le champ a été retiré des formulaires).
+        if 'lien_espace_client' in request.form:
+            cp.lien_espace_client = lien_espace_client
         cp.locataire_nom = locataire_nom
         cp.locataire_prenom = locataire_prenom
         cp.locataire_email = locataire_email

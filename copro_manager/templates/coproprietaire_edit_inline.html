@@ -1,3 +1,4 @@
+{% set civilites = civilites %}
 <form method="POST" action="{{ url_for('save_coproprietaire') }}">
   <input type="hidden" name="from" value="coproprietaires">
   <input type="hidden" name="coproprietaire_id" value="{{ cp.id }}">
@@ -14,91 +15,120 @@
       </div>
     </div>
 
+    <!-- PERSONNES (plusieurs) -->
     <div class="row mb-3">
-      <div class="col-md-3">
-        <label>Civilité</label>
-        <select class="form-select" name="persons[0][civilite_id]">
-          <option value="">Civilité</option>
-          {% for c in civilites %}
-          <option value="{{ c.id }}" {% if cp.civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-4">
-        <label>Nom</label>
-        <input type="text" class="form-control" name="persons[0][nom]" value="{{ cp.nom or '' }}" required>
-      </div>
-      <div class="col-md-5">
-        <label>Prénom</label>
-        <input type="text" class="form-control" name="persons[0][prenom]" value="{{ cp.prenom or '' }}">
-      </div>
-    </div>
-
-    <div class="row mb-3">
-      <div class="col-md-4">
-        <label>Date acquisition</label>
-        <input type="date" class="form-control" name="date_acquisition"
-               value="{{ cp.date_acquisition.strftime('%Y-%m-%d') if cp.date_acquisition else '' }}">
-      </div>
-      <div class="col-md-4">
-        <label>N° lot principal</label>
-        <input type="text" class="form-control" name="lots[0][numero]" value="{{ cp.numero_lot or '' }}">
-      </div>
-      <div class="col-md-4">
-        <label>Nature lot</label>
-        <input type="text" class="form-control" name="lots[0][nature]" value="{{ cp.nature_lot or '' }}">
-      </div>
-    </div>
-
-    <div class="row mb-3">
-      <div class="col-md-6">
-        <label>Adresse</label>
-        <input type="text" class="form-control" name="adresse" value="{{ cp.adresse or '' }}">
-      </div>
-      <div class="col-md-2">
-        <label>Code postal</label>
-        <input type="text" class="form-control" name="code_postal" value="{{ cp.code_postal or '' }}">
-      </div>
-      <div class="col-md-4">
-        <label>Ville</label>
-        <input type="text" class="form-control" name="ville" value="{{ cp.ville or '' }}">
-      </div>
-    </div>
-
-    {% set email_principal = cp.emails | selectattr('principal') | map(attribute='value') | first %}
-    {% set email_principal = email_principal or (cp.emails[0].value if cp.emails else cp.email) or '' %}
-    {% set tel_principal = cp.telephones | selectattr('principal') | map(attribute='value') | first %}
-    {% set tel_principal = tel_principal or (cp.telephones[0].value if cp.telephones else cp.telephone) or '' %}
-    <div class="row mb-3">
-      <div class="col-md-6">
-        <label>Email principal</label>
-        <input type="email" class="form-control" name="emails[0][value]"
-               value="{{ email_principal }}">
-        <input type="hidden" name="emails[0][principal]" value="1">
-      </div>
-      <div class="col-md-6">
-        <label>Téléphone principal</label>
-        <input type="text" class="form-control" name="telephones[0][value]"
-               value="{{ tel_principal }}">
-        <input type="hidden" name="telephones[0][principal]" value="1">
+      <div class="col-md-12">
+        <label>Personnes</label>
+        <div id="persons-container-edit-{{ cp.id }}">
+          <div class="row person-row mb-2">
+            <div class="col-md-3">
+              <select class="form-select" name="persons[0][civilite_id]">
+                <option value="">Civilité</option>
+                {% for c in civilites %}
+                <option value="{{ c.id }}" {% if cp.civilite_id == c.id %}selected{% endif %}>{{ c.libelle }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="persons[0][nom]" value="{{ cp.nom or '' }}" placeholder="Nom" required>
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="persons[0][prenom]" value="{{ cp.prenom or '' }}" placeholder="Prénom">
+            </div>
+            <div class="col-md-1">
+              <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="inlineAddRow('persons-container-edit-{{ cp.id }}','person')">+ Ajouter une personne</button>
       </div>
     </div>
 
     <div class="row mb-3">
       <div class="col-md-12">
-        <label>Statut</label>
-        <select class="form-select" name="statut_select" onchange="toggleLocataireEditInline(this)">
-          <option value="residence" {% if cp.est_residence_principale %}selected{% endif %}>Résidence principale</option>
-          <option value="loue" {% if cp.est_loue %}selected{% endif %}>Lot loué</option>
-          <option value="autre" {% if not cp.est_residence_principale and not cp.est_loue %}selected{% endif %}>Aucun des deux</option>
-        </select>
-        <input type="hidden" name="statut" id="statutHiddenEdit" value="{% if cp.est_residence_principale %}residence{% elif cp.est_loue %}loue{% else %}autre{% endif %}">
-        {% if cp.est_residence_principale %}<input type="hidden" name="est_residence_principale" value="on">{% endif %}
-        {% if cp.est_loue %}<input type="hidden" name="est_loue" value="on">{% endif %}
+        <label>Date acquisition</label>
+        <input type="date" class="form-control" name="date_acquisition"
+               value="{{ cp.date_acquisition.strftime('%Y-%m-%d') if cp.date_acquisition else '' }}">
       </div>
     </div>
 
-    <div id="locataire-container-edit-inline" style="display: {% if cp.est_loue %}block{% else %}none{% endif %};">
+    <!-- ADRESSE POSTALE -->
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label>Adresse</label>
+        <input type="text" class="form-control" name="adresse" value="{{ cp.adresse or '' }}" placeholder="Adresse postale">
+      </div>
+      <div class="col-md-2">
+        <label>Code postal</label>
+        <input type="text" class="form-control" name="code_postal" value="{{ cp.code_postal or '' }}" placeholder="CP">
+      </div>
+      <div class="col-md-4">
+        <label>Ville</label>
+        <input type="text" class="form-control" name="ville" value="{{ cp.ville or '' }}" placeholder="Ville">
+      </div>
+    </div>
+
+    <!-- LOTS (plusieurs) -->
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <label>Lots</label>
+        <div id="lots-container-edit-{{ cp.id }}">
+          {% if cp.lots %}
+            {% for lot in cp.lots %}
+            <div class="row lot-row mb-2">
+              <div class="col-md-5">
+                <input type="text" class="form-control" name="lots[{{ loop.index0 }}][numero]" value="{{ lot.numero }}" placeholder="N° lot" required>
+              </div>
+              <div class="col-md-5">
+                <input type="text" class="form-control" name="lots[{{ loop.index0 }}][nature]" value="{{ lot.nature or '' }}" placeholder="Nature lot">
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="row lot-row mb-2">
+              <div class="col-md-5">
+                <input type="text" class="form-control" name="lots[0][numero]" value="{{ cp.numero_lot or '' }}" placeholder="N° lot" required>
+              </div>
+              <div class="col-md-5">
+                <input type="text" class="form-control" name="lots[0][nature]" value="{{ cp.nature_lot or '' }}" placeholder="Nature lot">
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="inlineAddRow('lots-container-edit-{{ cp.id }}','lot')">+ Ajouter un lot</button>
+      </div>
+    </div>
+
+    <!-- STATUT -->
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <label>Statut</label>
+        <div class="form-check">
+          <input type="radio" class="form-check-input inline-statut" name="statut" value="residence"
+                 {% if cp.est_residence_principale %}checked{% endif %}>
+          <label class="form-check-label">Résidence principale</label>
+        </div>
+        <div class="form-check">
+          <input type="radio" class="form-check-input inline-statut" name="statut" value="loue"
+                 {% if cp.est_loue %}checked{% endif %}>
+          <label class="form-check-label">Lot loué</label>
+        </div>
+        <div class="form-check">
+          <input type="radio" class="form-check-input inline-statut" name="statut" value="autre"
+                 {% if not cp.est_residence_principale and not cp.est_loue %}checked{% endif %}>
+          <label class="form-check-label">Aucun des deux</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCATAIRE -->
+    <div id="locataire-container-edit-{{ cp.id }}" {% if not cp.est_loue %}style="display: none;"{% endif %}>
       <div class="row mb-3"><div class="col-md-12"><h6>Informations du locataire</h6></div></div>
       <div class="row mb-3">
         <div class="col-md-3">
@@ -118,15 +148,100 @@
       </div>
     </div>
 
+    <!-- EMAILS (plusieurs) -->
     <div class="row mb-3">
-      <div class="col-md-6">
+      <div class="col-md-12">
+        <label>Emails</label>
+        <div id="emails-container-edit-{{ cp.id }}">
+          {% if cp.emails %}
+            {% for email in cp.emails %}
+            <div class="row contact-row mb-2">
+              <div class="col-md-6">
+                <input type="email" class="form-control" name="emails[{{ loop.index0 }}][value]" value="{{ email.value }}" placeholder="Email">
+              </div>
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  <input type="checkbox" class="form-check-input inline-email-principal" name="emails[{{ loop.index0 }}][principal]" value="1"
+                         {% if email.principal %}checked{% endif %}>
+                  <label class="form-check-label">Principal</label>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="row contact-row mb-2">
+              <div class="col-md-6">
+                <input type="email" class="form-control" name="emails[0][value]" value="{{ cp.email or '' }}" placeholder="Email">
+              </div>
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  <input type="checkbox" class="form-check-input inline-email-principal" name="emails[0][principal]" value="1" checked>
+                  <label class="form-check-label">Principal</label>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="inlineAddRow('emails-container-edit-{{ cp.id }}','email')">+ Ajouter un email</button>
+      </div>
+    </div>
+
+    <!-- TÉLÉPHONES (plusieurs) -->
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <label>Téléphones</label>
+        <div id="telephones-container-edit-{{ cp.id }}">
+          {% if cp.telephones %}
+            {% for telephone in cp.telephones %}
+            <div class="row contact-row mb-2">
+              <div class="col-md-6">
+                <input type="text" class="form-control" name="telephones[{{ loop.index0 }}][value]" value="{{ telephone.value }}" placeholder="Téléphone">
+              </div>
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  <input type="checkbox" class="form-check-input inline-phone-principal" name="telephones[{{ loop.index0 }}][principal]" value="1"
+                         {% if telephone.principal %}checked{% endif %}>
+                  <label class="form-check-label">Principal</label>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="row contact-row mb-2">
+              <div class="col-md-6">
+                <input type="text" class="form-control" name="telephones[0][value]" value="{{ cp.telephone or '' }}" placeholder="Téléphone">
+              </div>
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  <input type="checkbox" class="form-check-input inline-phone-principal" name="telephones[0][principal]" value="1" checked>
+                  <label class="form-check-label">Principal</label>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="inlineAddRow('telephones-container-edit-{{ cp.id }}','phone')">+ Ajouter un téléphone</button>
+      </div>
+    </div>
+
+    <!-- Date mail accueil -->
+    <div class="row mb-3">
+      <div class="col-md-12">
         <label>Date mail accueil</label>
         <input type="date" class="form-control" name="date_envoi_mail_accueil"
                value="{{ cp.date_envoi_mail_accueil.strftime('%Y-%m-%d') if cp.date_envoi_mail_accueil else '' }}">
-      </div>
-      <div class="col-md-6">
-        <label>Lien espace client</label>
-        <input type="text" class="form-control" name="lien_espace_client" value="{{ cp.lien_espace_client or '' }}">
       </div>
     </div>
   </div>
@@ -135,18 +250,108 @@
     <button type="submit" class="btn btn-primary">Sauvegarder</button>
   </div>
 </form>
+
 <script>
-function toggleLocataireEditInline(sel) {
-    document.getElementById('locataire-container-edit-inline').style.display = sel.value === 'loue' ? 'block' : 'none';
-    document.getElementById('statutHiddenEdit').value = sel.value;
-    const form = sel.closest('form');
-    let res = form.querySelector('input[name="est_residence_principale"]');
-    let loue = form.querySelector('input[name="est_loue"]');
-    if (!res) { res = document.createElement('input'); res.type='hidden'; res.name='est_residence_principale'; form.appendChild(res); }
-    if (!loue) { loue = document.createElement('input'); loue.type='hidden'; loue.name='est_loue'; form.appendChild(loue); }
-    res.value = (sel.value === 'residence') ? 'on' : '';
-    loue.value = (sel.value === 'loue') ? 'on' : '';
-    res.disabled = (sel.value !== 'residence');
-    loue.disabled = (sel.value !== 'loue');
-}
+(function() {
+  var cpId = {{ cp.id }};
+
+  function reindex(container, prefix, kind) {
+    var rows = container.querySelectorAll('.row');
+    rows.forEach(function(row, i) {
+      var named = row.querySelectorAll('[name^="' + prefix + '"]');
+      named.forEach(function(el) {
+        var n = el.getAttribute('name');
+        el.setAttribute('name', n.replace(/\[\d+\]/, '[' + i + ']'));
+      });
+    });
+  }
+
+  function addRow(containerId, kind) {
+    var container = document.getElementById(containerId);
+    var rows = container.querySelectorAll('.row');
+    var i = rows.length;
+    var html = '';
+    if (kind === 'person') {
+      html = '<div class="row person-row mb-2">' +
+        '<div class="col-md-3"><select class="form-select" name="persons[' + i + '][civilite_id]"><option value="">Civilité</option>{% for c in civilites %}<option value="{{ c.id }}">{{ c.libelle }}</option>{% endfor %}</select></div>' +
+        '<div class="col-md-4"><input type="text" class="form-control" name="persons[' + i + '][nom]" placeholder="Nom" required></div>' +
+        '<div class="col-md-4"><input type="text" class="form-control" name="persons[' + i + '][prenom]" placeholder="Prénom"></div>' +
+        '<div class="col-md-1"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+        '</div>';
+    } else if (kind === 'lot') {
+      html = '<div class="row lot-row mb-2">' +
+        '<div class="col-md-5"><input type="text" class="form-control" name="lots[' + i + '][numero]" placeholder="N° lot"></div>' +
+        '<div class="col-md-5"><input type="text" class="form-control" name="lots[' + i + '][nature]" placeholder="Nature lot"></div>' +
+        '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+        '</div>';
+    } else if (kind === 'email') {
+      html = '<div class="row contact-row mb-2">' +
+        '<div class="col-md-6"><input type="email" class="form-control" name="emails[' + i + '][value]" placeholder="Email"></div>' +
+        '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input inline-email-principal" name="emails[' + i + '][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
+        '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+        '</div>';
+    } else if (kind === 'phone') {
+      html = '<div class="row contact-row mb-2">' +
+        '<div class="col-md-6"><input type="text" class="form-control" name="telephones[' + i + '][value]" placeholder="Téléphone"></div>' +
+        '<div class="col-md-4"><div class="form-check mt-2"><input type="checkbox" class="form-check-input inline-phone-principal" name="telephones[' + i + '][principal]" value="1"><label class="form-check-label">Principal</label></div></div>' +
+        '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
+        '</div>';
+    }
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    container.appendChild(div.firstElementChild);
+    if (kind === 'email' || kind === 'phone') {
+      var cls = kind === 'email' ? 'inline-email-principal' : 'inline-phone-principal';
+      div.remove();
+      var cb = container.querySelectorAll('.' + cls);
+      cb[cb.length-1].addEventListener('change', function() {
+        if (this.checked) {
+          container.querySelectorAll('.' + cls).forEach(function(c){ if (c!==this) c.checked=false; }.bind(this));
+        }
+      });
+    }
+  }
+
+  // expose
+  if (!window.inlineAddRow) {
+    window.inlineAddRow = function(containerId, kind) {
+      addRow(containerId, kind);
+    };
+  }
+
+  // statut -> locataire
+  var form = document.querySelector('#editCoproprietaireGlobalContent form, #editCoproprietaireGlobalModal form');
+  document.querySelectorAll('.inline-statut').forEach(function(r){
+    r.addEventListener('change', function(){
+      var cont = document.getElementById('locataire-container-edit-' + cpId);
+      cont.style.display = this.value === 'loue' ? 'block' : 'none';
+    });
+  });
+
+  // checkbox principal (un seul)
+  document.querySelectorAll('.inline-email-principal').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      if (this.checked) {
+        document.querySelectorAll('.inline-email-principal').forEach(function(c){ if (c!==cb) c.checked=false; });
+      }
+    });
+  });
+  document.querySelectorAll('.inline-phone-principal').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      if (this.checked) {
+        document.querySelectorAll('.inline-phone-principal').forEach(function(c){ if (c!==cb) c.checked=false; });
+      }
+    });
+  });
+
+  // remove row buttons
+  document.querySelectorAll('#editCoproprietaireGlobalContent .remove-row-btn, #editCoproprietaireGlobalModal .remove-row-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var row = this.closest('.row');
+      var container = row.parentElement;
+      if (container.querySelectorAll('.row').length > 1) row.remove();
+      else alert("Vous devez avoir au moins une ligne.");
+    });
+  });
+})();
 </script>
