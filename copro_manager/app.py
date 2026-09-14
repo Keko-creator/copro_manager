@@ -48,6 +48,7 @@ class Copropriete(db.Model):
     coproprietaires = db.relationship('Coproprietaire', backref='copropriete', lazy=True)
     assemblees_generales = db.relationship('AssembleeGenerale', backref='copropriete', lazy=True)
     resolutions_futures = db.relationship('ResolutionFuture', backref='copropriete', lazy=True)
+    demandes = db.relationship('Demande', backref='copropriete', lazy=True, cascade="all, delete-orphan")
 
 class FicheImmeuble(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -116,6 +117,11 @@ class Coproprietaire(db.Model):
     emails = db.relationship('EmailCoproprietaire', backref='coproprietaire', lazy=True, cascade="all, delete-orphan")
     telephones = db.relationship('TelephoneCoproprietaire', backref='coproprietaire', lazy=True, cascade="all, delete-orphan")
 
+    @property
+    def nom_affiche(self):
+        parts = [p for p in (self.nom, self.prenom) if p]
+        return ' '.join(parts) or f'Copropriétaire #{self.id}'
+
 class Civilite(db.Model):
     __tablename__ = 'civilites'
     id = db.Column(db.Integer, primary_key=True)
@@ -182,6 +188,17 @@ class ResolutionFuture(db.Model):
     copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
     titre = db.Column(db.String(200))
     projet = db.Column(db.String(500))
+
+class Demande(db.Model):
+    __tablename__ = 'demandes'
+    id = db.Column(db.Integer, primary_key=True)
+    copropriete_id = db.Column(db.Integer, db.ForeignKey('copropriete.id'), nullable=False)
+    date = db.Column(db.Date)
+    demandeur = db.Column(db.String(200))
+    type_action = db.Column(db.String(50))
+    details = db.Column(db.Text)
+    echeance = db.Column(db.String(200))
+    suivi = db.Column(db.String(20), default='a_faire')  # a_faire | en_cours | fait
 
 # ========== MODÈLES POUR LE TABLEAU ASSURANCE (dynamique) ==========
 # Approche entité-attribut-valeur pour permettre l'ajout/suppression
@@ -763,6 +780,7 @@ def copropriete(copro_id):
         coproprietaires=copropriete.coproprietaires,
         assemblees=copropriete.assemblees_generales,
         resolutions=copropriete.resolutions_futures,
+        demandes=copropriete.demandes,
         types_contrats=types_contrats,
         civilites=civilites,
         assurance_contrat=assurance_contrat
@@ -1276,6 +1294,55 @@ def delete_resolution(resolution_id):
     db.session.delete(resolution)
     db.session.commit()
     flash('Résolution supprimée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+# ========== DEMANDES ROUTES ==========
+@app.route('/demande/save', methods=['POST'])
+def save_demande():
+    copro_id = request.form.get('copro_id')
+    demande_id = request.form.get('demande_id')
+
+    if demande_id:
+        demande = Demande.query.get(demande_id)
+        if not demande:
+            flash('Demande non trouvée', 'error')
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    else:
+        demande = Demande(copropriete_id=copro_id)
+
+    demande.date = parse_date(request.form.get('date'))
+    demande.demandeur = request.form.get('demandeur')
+    if demande.demandeur == '__autre__':
+        demande.demandeur = request.form.get('demandeur_autre', '').strip()
+    demande.type_action = request.form.get('type_action')
+    demande.details = request.form.get('details')
+    demande.echeance = request.form.get('echeance')
+    demande.suivi = request.form.get('suivi', 'a_faire')
+
+    db.session.add(demande)
+    db.session.commit()
+    flash('Demande sauvegardée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+@app.route('/demande/<int:demande_id>/delete', methods=['POST'])
+def delete_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    copro_id = demande.copropriete_id
+    db.session.delete(demande)
+    db.session.commit()
+    flash('Demande supprimée avec succès !', 'success')
+    return redirect(url_for('copropriete', copro_id=copro_id))
+
+@app.route('/demande/<int:demande_id>/suivi', methods=['POST'])
+def demande_suivi(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    copro_id = demande.copropriete_id
+    suivi = request.form.get('suivi', 'a_faire')
+    if suivi not in ('a_faire', 'en_cours', 'fait'):
+        suivi = 'a_faire'
+    demande.suivi = suivi
+    db.session.commit()
+    flash('Suivi mis à jour.', 'success')
     return redirect(url_for('copropriete', copro_id=copro_id))
 
 def _migrer_colonnes_coproprietaires():
