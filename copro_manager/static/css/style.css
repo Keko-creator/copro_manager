@@ -1,19 +1,81 @@
 /* Custom styles for Copro Manager */
 
+:root {
+    --copro-primary: #2c6e9b;
+    --copro-primary-dark: #215477;
+    --copro-accent: #1abc9c;
+    --copro-bg: #eef2f6;
+    --copro-border: #e3e8ef;
+}
+
 /* Body and general styles */
 body {
-    padding-top: 20px;
-    background-color: #f8f9fa;
+    padding-top: 0;
+    background-color: var(--copro-bg);
+    color: #2c3e50;
+}
+
+/* Navbar */
+.navbar.bg-primary,
+.navbar-dark.bg-primary {
+    background-color: var(--copro-primary) !important;
+}
+
+.navbar {
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(33, 84, 119, 0.18);
 }
 
 /* Card styles */
 .card {
     margin-bottom: 20px;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid var(--copro-border);
+    border-radius: 0.6rem;
+    box-shadow: 0 2px 8px rgba(33, 84, 119, 0.06);
 }
 
 .card-header {
     font-weight: 600;
+    border-top-left-radius: 0.6rem !important;
+    border-top-right-radius: 0.6rem !important;
+}
+
+.card-header.bg-primary {
+    background-color: var(--copro-primary) !important;
+}
+
+.card-header h3 {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+/* Sous-blocs d'informations (fiche copropriété) */
+.info-block {
+    background-color: #fff;
+    border: 1px solid var(--copro-border);
+    border-left: 4px solid var(--copro-accent);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    height: 100%;
+}
+
+.info-block-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--copro-primary-dark);
+    margin-bottom: 0.75rem;
+}
+
+.info-block dl dt {
+    color: #6c7a89;
+    font-weight: 500;
+}
+
+.info-block dl dd {
+    font-weight: 600;
+    color: #2c3e50;
 }
 
 /* Table styles */
@@ -37,7 +99,21 @@ body {
 
 /* Button styles */
 .btn {
-    margin-right: 5px;
+    border-radius: 0.4rem;
+}
+
+.btn-primary,
+.btn-outline-primary {
+    --bs-btn-bg: var(--copro-primary);
+    --bs-btn-border-color: var(--copro-primary);
+    --bs-btn-hover-bg: var(--copro-primary-dark);
+    --bs-btn-hover-border-color: var(--copro-primary-dark);
+    --bs-btn-active-bg: var(--copro-primary-dark);
+    --bs-btn-active-border-color: var(--copro-primary-dark);
+}
+
+.btn-primary {
+    --bs-btn-color: #fff;
 }
 
 .btn-sm {
@@ -54,11 +130,6 @@ body {
     font-weight: 500;
 }
 
-/* Navbar styles */
-.navbar {
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
 
 .navbar-brand {
     font-weight: 600;
