@@ -102,18 +102,28 @@ body {
     border-radius: 0.4rem;
 }
 
-.btn-primary,
-.btn-outline-primary {
+.btn-primary {
     --bs-btn-bg: var(--copro-primary);
     --bs-btn-border-color: var(--copro-primary);
+    --bs-btn-color: #fff;
     --bs-btn-hover-bg: var(--copro-primary-dark);
     --bs-btn-hover-border-color: var(--copro-primary-dark);
+    --bs-btn-hover-color: #fff;
     --bs-btn-active-bg: var(--copro-primary-dark);
     --bs-btn-active-border-color: var(--copro-primary-dark);
+    --bs-btn-active-color: #fff;
 }
 
-.btn-primary {
-    --bs-btn-color: #fff;
+.btn-outline-primary {
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: var(--copro-primary);
+    --bs-btn-color: var(--copro-primary);
+    --bs-btn-hover-bg: var(--copro-primary);
+    --bs-btn-hover-border-color: var(--copro-primary);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--copro-primary);
+    --bs-btn-active-border-color: var(--copro-primary);
+    --bs-btn-active-color: #fff;
 }
 
 .btn-sm {
