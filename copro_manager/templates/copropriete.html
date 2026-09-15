@@ -143,87 +143,51 @@
     <i class="fas fa-arrow-left"></i> Retour à la liste
 </a>
 
-<!-- Contrat d'assurance (issu du tableau Assurance) -->
-{% if assurance_contrat %}
-<div class="card mb-4">
-    <div class="card-header bg-success text-white">
-        <h3><i class="fas fa-shield-alt"></i> Contrat d'assurance
-            {% if assurance_contrat.derniere_annee %}<span class="badge bg-light text-dark ms-2">Tarif {{ assurance_contrat.derniere_annee }}</span>{% endif %}
-        </h3>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle">
-                <thead class="table-light">
-                    <tr class="text-center">
-                        <th>Entreprise</th>
-                        <th>Début</th>
-                        <th>N°</th>
-                        <th>Superficie</th>
-                        {% if assurance_contrat.derniere_annee %}
-                        <th>Tarif {{ assurance_contrat.derniere_annee }}</th>
-                        <th>Prix au m²/€TTC {{ assurance_contrat.derniere_annee }}</th>
-                        {% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="text-center">
-                        <td class="fw-bold">{{ assurance_contrat.entreprise or '—' }}</td>
-                        <td>{{ assurance_contrat.debut or '—' }}</td>
-                        <td>{{ assurance_contrat.numero_contrat or '—' }}</td>
-                        <td>{{ assurance_contrat.superficie or '—' }}</td>
-                        {% if assurance_contrat.derniere_annee %}
-                        <td>{{ assurance_contrat.dernier_tarif or '—' }}</td>
-                        <td>{{ assurance_contrat.dernier_prix_m2 or '—' }}</td>
-                        {% endif %}
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <p class="text-muted mb-0">
-            <a href="{{ url_for('assurance_page') }}" class="text-decoration-none">
-                <i class="fas fa-arrow-right"></i> Voir le tableau complet des contrats d'assurance
-            </a>
-        </p>
-    </div>
-</div>
-{% endif %}
-
-<!-- Liste des contrats -->
-{% if contrats %}
+<!-- NOUVEAU : Liste des demandes -->
 <div class="card mb-4">
     <div class="card-header bg-light">
-        <h3><i class="fas fa-file-contract"></i> Contrats existants ({{ contrats|length }})</h3>
+        <h3><i class="fas fa-clipboard-list"></i> Liste des demandes ({{ demandes|length }})</h3>
     </div>
     <div class="card-body">
+        {% if demandes %}
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped align-middle">
                 <thead>
                     <tr>
-                        <th>Type</th>
-                        <th>Nature</th>
-                        <th>Fournisseur</th>
-                        <th>Montant</th>
+                        <th>Date</th>
+                        <th>Demandeur</th>
+                        <th>Type d'action</th>
+                        <th>Détails</th>
+                        <th>Échéance</th>
+                        <th>Suivi</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for c in contrats %}
-                    <tr>
-                        <td>{{ c.type_contrat }}</td>
-                        <td>{{ c.nature }}</td>
-                        <td>{{ c.fournisseur }}</td>
-                        <td>{{ c.montant_annuel }} €</td>
+                    {% for d in demandes %}
+                    <tr id="demande-row-{{ d.id }}" class="{% if d.suivi == 'fait' %}demande-fait{% endif %}">
+                        <td>{% if d.date %}{{ d.date.strftime('%d/%m/%Y') }}{% endif %}</td>
+                        <td>{{ d.demandeur or '' }}</td>
+                        <td>{{ d.type_action or '' }}</td>
+                        <td class="demande-details">{{ d.details or '' }}</td>
+                        <td>{{ d.echeance or '' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-warning suivi-btn {% if d.suivi == 'a_faire' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="a_faire" title="À faire">À faire</button>
+                                <button type="button" class="btn btn-outline-primary suivi-btn {% if d.suivi == 'en_cours' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="en_cours" title="En cours">En cours</button>
+                                <button type="button" class="btn btn-outline-success suivi-btn {% if d.suivi == 'fait' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="fait" title="Fait">Fait</button>
+                            </div>
+                        </td>
                         <td>
                             <button type="button" class="btn btn-sm btn-warning"
                                     data-bs-toggle="modal"
-                                    data-bs-target="#editContratModal-{{ c.id }}">
-                                <i class="fas fa-edit"></i> Modifier
+                                    data-bs-target="#editDemandeModal-{{ d.id }}">
+                                <i class="fas fa-edit"></i>
                             </button>
-                            <form action="{{ url_for('delete_contrat', contrat_id=c.id) }}" method="POST" style="display: inline;">
+                            <form action="{{ url_for('delete_demande', demande_id=d.id) }}" method="POST" style="display: inline;">
                                 <button type="submit" class="btn btn-danger btn-sm"
-                                    onclick="return confirm('⚠️ Supprimer ce contrat ? Les prestations associées seront aussi supprimées.');">
-                                    <i class="fas fa-trash"></i> Supprimer
+                                        onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.');">
+                                    <i class="fas fa-trash"></i>
                                 </button>
                             </form>
                         </td>
@@ -232,9 +196,9 @@
                 </tbody>
             </table>
         </div>
-    </div>
-</div>
-{% endif %}
+        {% else %}
+        <p class="text-muted">Aucune demande enregistrée pour le moment.</p>
+        {% endif %}
 
 <!-- Liste des copropriétaires -->
 {% if coproprietaires %}
@@ -373,6 +337,99 @@
 </div>
 {% endif %}
 
+<!-- Liste des contrats -->
+{% if contrats %}
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h3><i class="fas fa-file-contract"></i> Contrats existants ({{ contrats|length }})</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Nature</th>
+                        <th>Fournisseur</th>
+                        <th>Montant</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in contrats %}
+                    <tr>
+                        <td>{{ c.type_contrat }}</td>
+                        <td>{{ c.nature }}</td>
+                        <td>{{ c.fournisseur }}</td>
+                        <td>{{ c.montant_annuel }} €</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-warning"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editContratModal-{{ c.id }}">
+                                <i class="fas fa-edit"></i> Modifier
+                            </button>
+                            <form action="{{ url_for('delete_contrat', contrat_id=c.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                    onclick="return confirm('⚠️ Supprimer ce contrat ? Les prestations associées seront aussi supprimées.');">
+                                    <i class="fas fa-trash"></i> Supprimer
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Contrat d'assurance (issu du tableau Assurance) -->
+{% if assurance_contrat %}
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h3><i class="fas fa-shield-alt"></i> Contrat d'assurance
+            {% if assurance_contrat.derniere_annee %}<span class="badge bg-light text-dark ms-2">Tarif {{ assurance_contrat.derniere_annee }}</span>{% endif %}
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>Entreprise</th>
+                        <th>Début</th>
+                        <th>N°</th>
+                        <th>Superficie</th>
+                        {% if assurance_contrat.derniere_annee %}
+                        <th>Tarif {{ assurance_contrat.derniere_annee }}</th>
+                        <th>Prix au m²/€TTC {{ assurance_contrat.derniere_annee }}</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="text-center">
+                        <td class="fw-bold">{{ assurance_contrat.entreprise or '—' }}</td>
+                        <td>{{ assurance_contrat.debut or '—' }}</td>
+                        <td>{{ assurance_contrat.numero_contrat or '—' }}</td>
+                        <td>{{ assurance_contrat.superficie or '—' }}</td>
+                        {% if assurance_contrat.derniere_annee %}
+                        <td>{{ assurance_contrat.dernier_tarif or '—' }}</td>
+                        <td>{{ assurance_contrat.dernier_prix_m2 or '—' }}</td>
+                        {% endif %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted mb-0">
+            <a href="{{ url_for('assurance_page') }}" class="text-decoration-none">
+                <i class="fas fa-arrow-right"></i> Voir le tableau complet des contrats d'assurance
+            </a>
+        </p>
+    </div>
+</div>
+{% endif %}
+
 <!-- NOUVEAU : Liste des AG -->
 {% if assemblees %}
 <div class="card mb-4">
@@ -465,62 +522,6 @@
 </div>
 {% endif %}
 
-<!-- NOUVEAU : Liste des demandes -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h3><i class="fas fa-clipboard-list"></i> Liste des demandes ({{ demandes|length }})</h3>
-    </div>
-    <div class="card-body">
-        {% if demandes %}
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Demandeur</th>
-                        <th>Type d'action</th>
-                        <th>Détails</th>
-                        <th>Échéance</th>
-                        <th>Suivi</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in demandes %}
-                    <tr id="demande-row-{{ d.id }}" class="{% if d.suivi == 'fait' %}demande-fait{% endif %}">
-                        <td>{% if d.date %}{{ d.date.strftime('%d/%m/%Y') }}{% endif %}</td>
-                        <td>{{ d.demandeur or '' }}</td>
-                        <td>{{ d.type_action or '' }}</td>
-                        <td class="demande-details">{{ d.details or '' }}</td>
-                        <td>{{ d.echeance or '' }}</td>
-                        <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-warning suivi-btn {% if d.suivi == 'a_faire' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="a_faire" title="À faire">À faire</button>
-                                <button type="button" class="btn btn-outline-primary suivi-btn {% if d.suivi == 'en_cours' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="en_cours" title="En cours">En cours</button>
-                                <button type="button" class="btn btn-outline-success suivi-btn {% if d.suivi == 'fait' %}active{% endif %}" data-demande-id="{{ d.id }}" data-suivi="fait" title="Fait">Fait</button>
-                            </div>
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-warning"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#editDemandeModal-{{ d.id }}">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <form action="{{ url_for('delete_demande', demande_id=d.id) }}" method="POST" style="display: inline;">
-                                <button type="submit" class="btn btn-danger btn-sm"
-                                        onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.');">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="text-muted">Aucune demande enregistrée pour le moment.</p>
-        {% endif %}
     </div>
 </div>
 
