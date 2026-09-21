@@ -154,6 +154,10 @@
                 <input type="radio" class="form-check-input locataire-toggle" name="statut" id="autreAdd" value="autre">
                 <label class="form-check-label" for="autreAdd">Aucun des deux</label>
               </div>
+              <div class="form-check mt-2">
+                <input type="checkbox" class="form-check-input" name="est_conseil_syndical" id="conseilSyndicalAdd" value="1">
+                <label class="form-check-label" for="conseilSyndicalAdd">Membre du Conseil Syndical</label>
+              </div>
             </div>
           </div>
 
@@ -528,6 +532,11 @@
                 <input type="radio" class="form-check-input locataire-toggle" name="statut" id="autre-{{ cp.id }}" value="autre"
                        {% if not cp.est_residence_principale and not cp.est_loue %}checked{% endif %}>
                 <label class="form-check-label" for="autre-{{ cp.id }}">Aucun des deux</label>
+              </div>
+              <div class="form-check mt-2">
+                <input type="checkbox" class="form-check-input" name="est_conseil_syndical" id="conseilSyndical-{{ cp.id }}" value="1"
+                       {% if cp.est_conseil_syndical %}checked{% endif %}>
+                <label class="form-check-label" for="conseilSyndical-{{ cp.id }}">Membre du Conseil Syndical</label>
               </div>
             </div>
           </div>

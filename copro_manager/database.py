@@ -92,6 +92,7 @@ class Coproprietaire(db.Model):
     telephone = db.Column(db.String(50))
     est_residence_principale = db.Column(db.Boolean, default=False)
     est_loue = db.Column(db.Boolean, default=False)
+    est_conseil_syndical = db.Column(db.Boolean, default=False)
     date_envoi_mail_accueil = db.Column(db.Date)
     lien_espace_client = db.Column(db.String(500))
 

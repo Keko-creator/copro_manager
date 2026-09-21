@@ -101,6 +101,7 @@ class Coproprietaire(db.Model):
     telephone = db.Column(db.String(50))
     est_residence_principale = db.Column(db.Boolean, default=False)
     est_loue = db.Column(db.Boolean, default=False)
+    est_conseil_syndical = db.Column(db.Boolean, default=False)
     date_envoi_mail_accueil = db.Column(db.Date)
     lien_espace_client = db.Column(db.String(500))
     # Adresse postale du copropriétaire (pour correspondre au fichier Excel
@@ -991,6 +992,15 @@ def _normaliser_visite(valeur):
         return valeur
 
 
+def _migrer_coproprietaires():
+    """Ajoute la colonne est_conseil_syndical aux bases créées avant son
+    introduction (db.create_all ne migre pas les tables existantes)."""
+    with db.engine.begin() as conn:
+        colonnes = [c['name'] for c in db.inspect(conn).get_columns('coproprietaire')]
+        if 'est_conseil_syndical' not in colonnes:
+            conn.execute(db.text('ALTER TABLE coproprietaire ADD COLUMN est_conseil_syndical BOOLEAN DEFAULT 0'))
+
+
 def _migrer_visite_lignes():
     """Ajoute la colonne mise_copro aux bases créées avant son introduction
     (db.create_all ne migre pas les tables existantes)."""
@@ -1020,6 +1030,7 @@ def _importer_visites():
     """Importe les lignes du tableau « Visites d'immeuble agate » (une seule
     fois, si les tables sont vides). Une fois fait, le fichier Excel peut
     être supprimé."""
+    _migrer_coproprietaires()
     _migrer_visite_lignes()
     if VisiteColonne.query.count() > 0 or VisiteLigne.query.count() > 0:
         _completer_mise_copro()
@@ -1354,6 +1365,7 @@ def _assurance_pour_copropriete(numero):
 
 @app.route('/copropriete/<int:copro_id>')
 def copropriete(copro_id):
+    _migrer_coproprietaires()
     copropriete = Copropriete.query.options(
         joinedload(Copropriete.fiche_immeuble),
         joinedload(Copropriete.coproprietaires),
@@ -1402,6 +1414,7 @@ def delete_coproprietaire(coproprietaire_id):
 @app.route('/coproprietaires', endpoint='coproprietaires_page')
 def coproprietaires_page():
     """Tableau dynamique de tous les copropriétaires, groupés par N° de copro."""
+    _migrer_coproprietaires()
     search_query = request.args.get('q', '').strip()
     filter_copro = request.args.get('copro', '').strip()
 
@@ -1693,6 +1706,7 @@ def delete_contrat(contrat_id):
 # ========== COPROPRIETAIRE ROUTES ==========
 @app.route('/save_coproprietaire', methods=['POST'])
 def save_coproprietaire():
+    _migrer_coproprietaires()
     copro_id = request.form.get('copro_id')
     coproprietaire_id = request.form.get('coproprietaire_id')
 
@@ -1718,6 +1732,7 @@ def save_coproprietaire():
         est_loue = True
     else:
         est_loue = False
+    est_conseil_syndical = 'est_conseil_syndical' in request.form
     date_envoi_mail_accueil = parse_date(request.form.get('date_envoi_mail_accueil'))
     lien_espace_client = request.form.get('lien_espace_client')
 
@@ -1800,6 +1815,7 @@ def save_coproprietaire():
         cp.date_acquisition = date_acquisition
         cp.est_residence_principale = est_residence_principale
         cp.est_loue = est_loue
+        cp.est_conseil_syndical = est_conseil_syndical
         cp.date_envoi_mail_accueil = date_envoi_mail_accueil
         # Conserve le lien espace client existant si le champ n'est pas
         # soumis (le champ a été retiré des formulaires).
@@ -1830,6 +1846,19 @@ def save_coproprietaire():
     if request.form.get('from') == 'coproprietaires':
         return redirect(url_for('coproprietaires_page'))
     return redirect(url_for('copropriete', copro_id=copro_id))
+
+
+@app.route('/coproprietaire/<int:coproprietaire_id>/toggle-conseil-syndical', methods=['POST'], endpoint='coproprietaire_toggle_conseil_syndical')
+def coproprietaire_toggle_conseil_syndical(coproprietaire_id):
+    """Coche/décoche le statut « Membre du Conseil Syndical » d'un
+    copropriétaire (case à cocher directe dans le tableau)."""
+    _migrer_coproprietaires()
+    cp = Coproprietaire.query.get_or_404(coproprietaire_id)
+    cp.est_conseil_syndical = not cp.est_conseil_syndical
+    db.session.commit()
+    flash('Statut Conseil Syndical mis à jour.', 'success')
+    return redirect(request.referrer or url_for('coproprietaires_page'))
+
 
 # ========== AG ROUTES ==========
 @app.route('/ag/save', methods=['POST'])
@@ -2069,6 +2098,9 @@ if __name__ == '__main__':
                 )
                 db.session.add(copro)
             db.session.commit()
+
+        # Ajouter la colonne Conseil Syndical aux bases existantes
+        _migrer_coproprietaires()
 
         # Importer les copropriétaires depuis le fichier Excel (une fois)
         _importer_coproprietaires_excel()

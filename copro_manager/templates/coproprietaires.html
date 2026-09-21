@@ -92,6 +92,7 @@
                         <th>Tél. principal</th>
                         <th>Email principal</th>
                         <th>Statut</th>
+                        <th>Conseil Syndical</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -147,6 +148,12 @@
                             {% else %}
                                 <span class="badge bg-secondary">Autre</span>
                             {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <form method="POST" action="{{ url_for('coproprietaire_toggle_conseil_syndical', coproprietaire_id=cp.id) }}">
+                                <input type="checkbox" class="form-check-input" title="Membre du Conseil Syndical"
+                                       onchange="this.form.submit()" {% if cp.est_conseil_syndical %}checked{% endif %}>
+                            </form>
                         </td>
                         <td>
                             <div class="d-flex gap-1">
