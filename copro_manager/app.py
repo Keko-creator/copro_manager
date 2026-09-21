@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import io
 import os
 import json
@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute COPROPRIETES_DATA
 from honoraires_data import HONORAIRE_DATA
 from visites_data import ANNEES as VISITES_ANNEES, LIGNES as VISITES_LIGNES
+from travaux_data import LIGNES as TRAVAUX_LIGNES
 
 # ========== CONFIGURATION ==========
 app = Flask(__name__)
@@ -292,6 +293,42 @@ class VisiteCellule(db.Model):
     ligne_id = db.Column(db.Integer, db.ForeignKey('visite_lignes.id'), nullable=False)
     colonne_id = db.Column(db.Integer, db.ForeignKey('visite_colonnes.id'), nullable=False)
     valeur = db.Column(db.String(100))  # date de visite (JJ/MM/AAAA) ou texte libre
+
+
+# ========== MODÈLES POUR LE TABLEAU TRAVAUX (dynamique) ==========
+
+STATUTS_TRAVAUX = ['en_cours', 'pret_ag', 'termine']
+
+class TravauxLigne(db.Model):
+    """Une ligne du tableau « ADF Travaux » : un travaux pour une copropriété."""
+    __tablename__ = 'travaux_lignes'
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.Integer)             # N° de copro
+    fin_exercice = db.Column(db.String(20))     # « 30 juin » ou « 31 décembre »
+    date_ag = db.Column(db.Date)                # tri : la plus récente en premier
+    type = db.Column(db.String(200))            # description du travaux
+    montant = db.Column(db.Float)               # €
+    honoraire = db.Column(db.Float)             # €
+    honoraire_facture = db.Column(db.Boolean, default=False)
+    nb_appels = db.Column(db.Integer)          # nb d'appels de fonds
+    tethrawin = db.Column(db.String(200))       # texte libre
+    devis_valide = db.Column(db.String(100))    # date ou texte libre
+    os = db.Column(db.String(200))              # texte libre
+    facture = db.Column(db.String(200))        # texte libre
+    annee_cloture = db.Column(db.String(20))    # année (ex: 2027) ou texte
+    statut = db.Column(db.String(20), default='en_cours')  # en_cours/pret_ag/termine
+    fait = db.Column(db.Boolean, default=False)  # suivi comptable : appel de fonds fait
+    appels = db.relationship('TravauxAppel', backref='ligne', lazy=True,
+                             cascade="all, delete-orphan",
+                             order_by='TravauxAppel.ordre')
+
+class TravauxAppel(db.Model):
+    """Une date d'appel de fonds d'une ligne de travaux."""
+    __tablename__ = 'travaux_appels'
+    id = db.Column(db.Integer, primary_key=True)
+    ligne_id = db.Column(db.Integer, db.ForeignKey('travaux_lignes.id'), nullable=False)
+    ordre = db.Column(db.Integer, nullable=False, default=0)
+    date_appel = db.Column(db.String(20))       # JJ/MM/AAAA ou texte libre
 
 # ========== UTILITY FUNCTIONS ==========
 def parse_date(date_str):
@@ -1248,6 +1285,313 @@ def visites_export():
     )
 
 
+# ========== ONGLET TRAVAUX (tableau « ADF Travaux AGATE ») ==========
+
+def _date_fr_vers_iso(valeur):
+    """Convertit JJ/MM/AAAA en date ; renvoie None sinon."""
+    try:
+        return datetime.strptime((valeur or '').strip(), '%d/%m/%Y').date()
+    except ValueError:
+        return None
+
+
+def _premiere_date_appel(ligne):
+    """Date d'appel de fonds la plus ancienne d'une ligne (date, ou None)."""
+    dates = []
+    for a in ligne.appels:
+        d = _date_fr_vers_iso(a.date_appel)
+        if d:
+            dates.append(d)
+    return min(dates) if dates else None
+
+
+def _devis_a_faire(ligne):
+    """True si la case Devis validé est vide et que la date du jour a
+    dépassé la date d'appel la plus ancienne de la ligne."""
+    if (ligne.devis_valide or '').strip():
+        return False
+    d = _premiere_date_appel(ligne)
+    return d is not None and date.today() > d
+
+
+def _fin_exercice_courte(valeur_iso):
+    """Convertit une date ISO (YYYY-MM-DD) en « 30 juin » / « 31 décembre »."""
+    if not valeur_iso:
+        return None
+    d = datetime.strptime(valeur_iso, '%Y-%m-%d').date()
+    if d.day == 30 and d.month == 6:
+        return '30 juin'
+    if d.day == 31 and d.month == 12:
+        return '31 décembre'
+    return d.strftime('%d/%m/%Y')
+
+
+def _importer_travaux():
+    """Importe les lignes du tableau « ADF Travaux AGATE » (une seule fois,
+    si la table est vide). Une fois fait, le fichier Excel peut être supprimé."""
+    if TravauxLigne.query.count() > 0:
+        return
+    for l in TRAVAUX_LIGNES:
+        ligne = TravauxLigne(
+            numero=l['numero'],
+            fin_exercice=_fin_exercice_courte(l.get('fin_exercice')),
+            date_ag=(datetime.strptime(l['date_ag'], '%Y-%m-%d').date()
+                     if l.get('date_ag') else None),
+            type=l.get('type'),
+            montant=l.get('montant'),
+            honoraire=l.get('honoraire'),
+            nb_appels=l.get('nb_appels'),
+            tethrawin=l.get('tethrawin'),
+            devis_valide=l.get('devis_valide'),
+            os=l.get('os'),
+            facture=l.get('facture'),
+            annee_cloture=l.get('annee_cloture'),
+            statut=l.get('statut') or 'en_cours',
+        )
+        db.session.add(ligne)
+    db.session.commit()
+
+
+def _travaux_context():
+    """Toutes les lignes de travaux triées par Date d'AG décroissante."""
+    lignes = TravauxLigne.query.order_by(TravauxLigne.date_ag.desc().nullslast(),
+                                         TravauxLigne.id).all()
+    for ligne in lignes:
+        ligne.devis_a_faire = _devis_a_faire(ligne)
+        ligne.date_ag_str = ligne.date_ag.strftime('%d/%m/%Y') if ligne.date_ag else ''
+        ligne.fin_exercice_str = ligne.fin_exercice or ''
+        ligne.premiere_date_appel = _premiere_date_appel(ligne)
+    return {'lignes': lignes}
+
+
+def _travaux_pour_copropriete(numero):
+    """Lignes de travaux d'une copropriété (triées par Date d'AG)."""
+    lignes = TravauxLigne.query.filter(TravauxLigne.numero == numero).order_by(
+        TravauxLigne.date_ag.desc().nullslast(), TravauxLigne.id).all()
+    for ligne in lignes:
+        ligne.devis_a_faire = _devis_a_faire(ligne)
+        ligne.date_ag_str = ligne.date_ag.strftime('%d/%m/%Y') if ligne.date_ag else ''
+        ligne.fin_exercice_str = ligne.fin_exercice or ''
+    return lignes
+
+
+@app.route('/travaux', endpoint='travaux_page')
+def travaux_page():
+    """Tableau des travaux + tableaux de suivi (devis à valider, appels
+    de fonds à faire pour la comptable)."""
+    _importer_travaux()
+    ctx = _travaux_context()
+    aujourdhui = date.today()
+    limite = aujourdhui - timedelta(days=62)
+    suivi_devis = [l for l in ctx['lignes'] if l.devis_a_faire]
+    suivi_appels = [l for l in ctx['lignes']
+                    if l.premiere_date_appel and limite <= l.premiere_date_appel <= aujourdhui]
+    return render_template('travaux.html', **ctx,
+                           suivi_devis=suivi_devis, suivi_appels=suivi_appels)
+
+
+@app.route('/travaux/ligne/add', methods=['POST'], endpoint='travaux_add_ligne')
+def travaux_add_ligne():
+    """Ajoute une ligne de travaux."""
+    numero_raw = request.form.get('numero', '').strip()
+    try:
+        numero = int(float(numero_raw.replace(',', '.')))
+    except (ValueError, TypeError):
+        flash('Veuillez indiquer un N° de copro valide.', 'error')
+        return redirect(url_for('travaux_page'))
+    ligne = TravauxLigne(numero=numero, statut='en_cours')
+    ligne.date_ag = parse_date(request.form.get('date_ag'))
+    ligne.type = request.form.get('type', '').strip() or None
+    montant = request.form.get('montant', '').replace('€', '').replace(' ', '').replace(',', '.')
+    if montant:
+        try:
+            ligne.montant = float(montant)
+        except ValueError:
+            pass
+    db.session.add(ligne)
+    db.session.commit()
+    flash(f'Ligne de travaux ajoutée pour la copropriété {numero}.', 'success')
+    return redirect(url_for('travaux_page'))
+
+
+@app.route('/travaux/ligne/<int:ligne_id>/delete', methods=['POST'], endpoint='travaux_delete_ligne')
+def travaux_delete_ligne(ligne_id):
+    ligne = TravauxLigne.query.get_or_404(ligne_id)
+    db.session.delete(ligne)
+    db.session.commit()
+    flash('Ligne de travaux supprimée.', 'success')
+    return redirect(url_for('travaux_page'))
+
+
+@app.route('/travaux/ligne/<int:ligne_id>/save', methods=['POST'], endpoint='travaux_save_ligne')
+def travaux_save_ligne(ligne_id):
+    """Sauvegarde d'une cellule ou d'une ligne entière depuis le tableau
+    ou la fiche copropriété."""
+    ligne = TravauxLigne.query.get_or_404(ligne_id)
+    champ = request.form.get('champ')
+    if champ:
+        valeur = (request.form.get('valeur') or '').strip()
+        if champ == 'date_ag':
+            ligne.date_ag = parse_date(valeur) if valeur else None
+        elif champ == 'fin_exercice':
+            ligne.fin_exercice = valeur or None
+        elif champ in ('montant', 'honoraire'):
+            if valeur:
+                try:
+                    setattr(ligne, champ, float(valeur.replace('€', '').replace(' ', '').replace(',', '.')))
+                except ValueError:
+                    pass
+            else:
+                setattr(ligne, champ, None)
+        elif champ == 'nb_appels':
+            if valeur:
+                try:
+                    ligne.nb_appels = int(valeur)
+                except ValueError:
+                    pass
+            else:
+                ligne.nb_appels = None
+        elif champ == 'statut':
+            ligne.statut = valeur if valeur in STATUTS_TRAVAUX else 'en_cours'
+        elif champ == 'honoraire_facture':
+            ligne.honoraire_facture = valeur == '1'
+        elif champ == 'fait':
+            ligne.fait = valeur == '1'
+        elif hasattr(ligne, champ) and champ not in ('id', 'numero'):
+            setattr(ligne, champ, valeur or None)
+        db.session.commit()
+        flash('Travaux sauvegardé.', 'success')
+    if request.form.get('from') == 'copropriete':
+        copro_id = request.form.get('copro_id', type=int)
+        if copro_id:
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    return redirect(url_for('travaux_page'))
+
+
+@app.route('/travaux/appel/save', methods=['POST'], endpoint='travaux_save_appel')
+def travaux_save_appel():
+    """Sauvegarde une date d'appel de fonds. Empty valeur = suppression."""
+    ligne_id = request.form.get('ligne_id', type=int)
+    appel_id = request.form.get('appel_id', type=int)
+    valeur = (request.form.get('valeur') or '').strip()
+    ligne = TravauxLigne.query.get_or_404(ligne_id)
+    if appel_id:
+        appel = TravauxAppel.query.get_or_404(appel_id)
+        if valeur:
+            appel.date_appel = valeur
+        else:
+            db.session.delete(appel)
+    elif valeur:
+        max_ordre = db.session.query(db.func.max(TravauxAppel.ordre)).filter_by(
+            ligne_id=ligne_id).scalar() or 0
+        db.session.add(TravauxAppel(ligne_id=ligne_id, ordre=max_ordre + 1,
+                                    date_appel=valeur))
+    db.session.commit()
+    if request.form.get('from') == 'copropriete':
+        copro_id = request.form.get('copro_id', type=int)
+        if copro_id:
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    return redirect(url_for('travaux_page'))
+
+
+@app.route('/travaux/ligne/<int:ligne_id>/appels', methods=['POST'], endpoint='travaux_save_appels')
+def travaux_save_appels(ligne_id):
+    """Remplace toutes les dates d'appels de fonds d'une ligne par celles
+    soumises (champs date_0, date_1, ...). Une date vide est ignorée."""
+    ligne = TravauxLigne.query.get_or_404(ligne_id)
+    dates = []
+    i = 0
+    while f'date_{i}' in request.form:
+        valeur = (request.form.get(f'date_{i}') or '').strip()
+        if valeur:
+            dates.append(valeur)
+        i += 1
+    TravauxAppel.query.filter_by(ligne_id=ligne_id).delete()
+    for ordre, d in enumerate(dates):
+        db.session.add(TravauxAppel(ligne_id=ligne_id, ordre=ordre, date_appel=d))
+    if not ligne.nb_appels or ligne.nb_appels < len(dates):
+        ligne.nb_appels = len(dates)
+    db.session.commit()
+    flash('Dates des appels de fonds sauvegardées.', 'success')
+    if request.form.get('from') == 'copropriete':
+        copro_id = request.form.get('copro_id', type=int)
+        if copro_id:
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    return redirect(url_for('travaux_page'))
+
+
+@app.route('/travaux/export', endpoint='travaux_export')
+def travaux_export():
+    """Exporte le tableau des travaux en Excel (.xlsx)."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    lignes = _travaux_context()['lignes']
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Travaux"
+
+    gras_blanc = Font(bold=True, color="FFFFFF")
+    fond = PatternFill(start_color="212529", end_color="212529", fill_type="solid")
+    bordure = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"))
+    centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    headers = [
+        'N° de copro', 'Fin exercice', "Date d'AG", 'Type', 'Montant', 'Honoraire',
+        'Honoraire facturé', "Nombre d'appels", 'Appels (dates)', 'Téthrawin',
+        'Devis validé', 'OS', 'Facture', 'Année de clôture', 'Clôturé',
+    ]
+    for c, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=c, value=h)
+        cell.font = gras_blanc
+        cell.fill = fond
+        cell.alignment = centre
+        cell.border = bordure
+
+    r = 2
+    for l in lignes:
+        valeurs = [
+            l.numero,
+            l.fin_exercice or '',
+            l.date_ag.strftime('%d/%m/%Y') if l.date_ag else '',
+            l.type or '',
+            l.montant if l.montant is not None else '',
+            l.honoraire if l.honoraire is not None else '',
+            'Oui' if l.honoraire_facture else '',
+            l.nb_appels if l.nb_appels is not None else '',
+            ', '.join(a.date_appel or '' for a in l.appels),
+            l.tethrawin or '',
+            ('A FAIRE' if l.devis_a_faire else (l.devis_valide or '')),
+            l.os or '',
+            l.facture or '',
+            l.annee_cloture or '',
+            {'en_cours': 'En cours', 'pret_ag': 'Prêt pour AG', 'termine': 'Terminé'}.get(l.statut, l.statut),
+        ]
+        for c, v in enumerate(valeurs, start=1):
+            cell = ws.cell(row=r, column=c, value=v)
+            cell.border = bordure
+        r += 1
+
+    largeurs = [12, 14, 12, 30, 12, 12, 14, 14, 24, 14, 14, 18, 18, 14, 14]
+    for c, w in enumerate(largeurs, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = w
+    ws.freeze_panes = "A2"
+
+    nom_fichier = f"travaux_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    tampon.seek(0)
+    return send_file(
+        tampon,
+        as_attachment=True,
+        download_name=nom_fichier,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
 @app.route('/')
 def index():
     stats = get_statistiques()
@@ -1383,6 +1727,7 @@ def copropriete(copro_id):
     assurance_contrat = _assurance_pour_copropriete(copropriete.numero)
     honoraire_ligne = _honoraire_pour_copropriete(copropriete.numero)
     visites = _visites_pour_copropriete(copropriete.numero)
+    travaux = _travaux_pour_copropriete(copropriete.numero)
 
     return render_template(
         'copropriete.html',
@@ -1397,6 +1742,7 @@ def copropriete(copro_id):
         assurance_contrat=assurance_contrat,
         honoraire_ligne=honoraire_ligne,
         visites=visites,
+        travaux=travaux,
     )
 
 @app.route('/coproprietaire/<int:coproprietaire_id>/delete', methods=['POST'])
@@ -2110,5 +2456,8 @@ if __name__ == '__main__':
 
         # Importer les visites depuis les données « Visites d'immeuble agate » (une fois)
         _importer_visites()
+
+        # Importer les travaux depuis les données « ADF Travaux AGATE » (une fois)
+        _importer_travaux()
 
     app.run(debug=True, host='0.0.0.0', port=5000)

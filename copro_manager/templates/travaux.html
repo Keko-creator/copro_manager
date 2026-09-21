@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Travaux - Copro Manager{% endblock %}
+{% block styles %}
+<style>
+    .travaux-scroll-wrapper {
+        max-height: 75vh;
+        overflow: auto;
+        border: 1px solid #dee2e6;
+    }
+    .travaux-scroll-wrapper thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #212529;
+        white-space: nowrap;
+    }
+    .travaux-scroll-wrapper td {
+        white-space: nowrap;
+    }
+    .travaux-scroll-wrapper td input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        text-align: center;
+    }
+    td.travaux-edit {
+        cursor: pointer;
+    }
+    td.travaux-edit:hover {
+        background-color: #e9ecef;
+    }
+    .ligne-terminee {
+        background-color: #d1e7dd !important;
+    }
+    .case-facture-verte {
+        background-color: #d1e7dd !important;
+    }
+    .texte-a-faire {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .ligne-faite {
+        background-color: #d1e7dd !important;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="display-4"><i class="fas fa-tools"></i> Travaux</h1>
+            <p class="lead">Appels de fonds travaux des copropriétés ({{ lignes|length }} lignes)</p>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTravauxLigneModal">
+                <i class="fas fa-plus"></i> Ajouter une ligne
+            </button>
+            <a href="{{ url_for('travaux_export') }}" class="btn btn-outline-success">
+                <i class="fas fa-file-excel"></i> Exporter Excel
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="travauxSearch" class="form-control" placeholder="Rechercher...">
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- ================= TABLEAU PRINCIPAL ================= -->
+<div class="card mb-4">
+    <div class="card-body">
+        {% if lignes %}
+        <div class="table-responsive travaux-scroll-wrapper">
+            <table class="table table-sm table-bordered table-hover align-middle" id="travauxTable">
+                <thead class="table-dark">
+                    <tr class="text-center">
+                        <th>N° de copro</th>
+                        <th>Fin d'exercice</th>
+                        <th>Date d'AG</th>
+                        <th>Type</th>
+                        <th>Montant</th>
+                        <th>Honoraires</th>
+                        <th>Facturé</th>
+                        <th>Nombre d'appels</th>
+                        <th>Téthrawin</th>
+                        <th>Devis Validé</th>
+                        <th>OS</th>
+                        <th>Facture</th>
+                        <th>Année de Clôture</th>
+                        <th>Clôturé</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lignes %}
+                    <tr class="travaux-row {% if l.statut == 'termine' %}ligne-terminee{% endif %}">
+                        <td class="fw-bold">{{ l.numero }}</td>
+                        <td class="travaux-edit" data-champ="fin_exercice" data-ligne-id="{{ l.id }}">{{ l.fin_exercice_str or '' }}</td>
+                        <td class="travaux-edit" data-champ="date_ag" data-ligne-id="{{ l.id }}">{{ l.date_ag_str or '' }}</td>
+                        <td class="travaux-edit" data-champ="type" data-ligne-id="{{ l.id }}">{{ l.type or '' }}</td>
+                        <td class="travaux-edit text-end" data-champ="montant" data-ligne-id="{{ l.id }}">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
+                        <td class="travaux-edit text-end" data-champ="honoraire" data-ligne-id="{{ l.id }}">{{ '%0.2f'|format(l.honoraire) if l.honoraire is not none }}{{ ' €' if l.honoraire is not none }}</td>
+                        <td class="text-center {% if l.honoraire_facture %}case-facture-verte{% endif %}">
+                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
+                                <input type="hidden" name="champ" value="honoraire_facture">
+                                <input type="hidden" name="from" value="travaux">
+                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.honoraire_facture %}checked{% endif %}>
+                            </form>
+                        </td>
+                        <td class="travaux-edit" data-champ="nb_appels" data-ligne-id="{{ l.id }}">{{ l.nb_appels if l.nb_appels is not none }}</td>
+                        <td class="travaux-edit" data-champ="tethrawin" data-ligne-id="{{ l.id }}">{{ l.tethrawin or '' }}</td>
+                        <td class="travaux-edit" data-champ="devis_valide" data-ligne-id="{{ l.id }}">
+                            {% if l.devis_a_faire %}<span class="texte-a-faire">A FAIRE</span>{% else %}{{ l.devis_valide or '' }}{% endif %}
+                        </td>
+                        <td class="travaux-edit" data-champ="os" data-ligne-id="{{ l.id }}">{{ l.os or '' }}</td>
+                        <td class="travaux-edit" data-champ="facture" data-ligne-id="{{ l.id }}">{{ l.facture or '' }}</td>
+                        <td class="travaux-edit" data-champ="annee_cloture" data-ligne-id="{{ l.id }}">{{ l.annee_cloture or '' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-flex gap-1 align-items-center">
+                                <input type="hidden" name="champ" value="statut">
+                                <input type="hidden" name="from" value="travaux">
+                                <select class="form-select form-select-sm statut-select" name="valeur" onchange="this.form.submit()">
+                                    <option value="en_cours" {% if l.statut == 'en_cours' %}selected{% endif %}>En cours</option>
+                                    <option value="pret_ag" {% if l.statut == 'pret_ag' %}selected{% endif %}>Prêt pour AG</option>
+                                    <option value="termine" {% if l.statut == 'termine' %}selected{% endif %}>Terminé</option>
+                                </select>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="POST" action="{{ url_for('travaux_delete_ligne', ligne_id=l.id) }}"
+                                  class="d-inline" onsubmit="return confirm('Supprimer cette ligne de travaux ?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mt-2 mb-0">
+            <i class="fas fa-edit"></i> Cliquez sur une cellule pour la modifier (dates JJ/MM/AAAA).
+            « Nombre d'appels » : saisir un nombre, les cases de dates s'ouvrent dans la fiche copropriété ou via le bouton dédié.
+            Ligne verte = Terminé ; case verte = Honoraires facturés ; <span class="texte-a-faire">A FAIRE</span> = devis à valider.
+        </p>
+        {% else %}
+        <div class="alert alert-info">Aucune ligne de travaux.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ================= SUIVI DEVIS À VALIDER ================= -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h3><i class="fas fa-exclamation-circle"></i> Devis à valider ({{ suivi_devis|length }})</h3>
+        <p class="text-muted small mb-0">Lignes dont le devis n'est pas encore validé alors que la date de l'appel de fonds le plus ancien est dépassée.</p>
+    </div>
+    <div class="card-body">
+        {% if suivi_devis %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr class="text-center">
+                        <th>N° de copro</th>
+                        <th>Date d'AG</th>
+                        <th>Type</th>
+                        <th>Montant</th>
+                        <th>Devis Validé</th>
+                        <th>Nombre d'appels</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in suivi_devis %}
+                    <tr>
+                        <td class="fw-bold">{{ l.numero }}</td>
+                        <td class="text-center">{{ l.date_ag_str }}</td>
+                        <td>{{ l.type or '' }}</td>
+                        <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
+                        <td class="text-center"><span class="texte-a-faire">A FAIRE</span></td>
+                        <td class="text-center">{{ l.nb_appels if l.nb_appels is not none }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Aucun devis à valider actuellement.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ================= SUIVI APPELS DE FONDS (COMPTABLE) ================= -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h3><i class="fas fa-phone-volume"></i> Appels de fonds à faire — suivi comptable ({{ suivi_appels|length }})</h3>
+        <p class="text-muted small mb-0">Lignes dont un appel de fonds a une date comprise entre il y a deux mois et aujourd'hui. Cochez « Fait » une fois l'appel de fonds envoyé.</p>
+    </div>
+    <div class="card-body">
+        {% if suivi_appels %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr class="text-center">
+                        <th>N° de copro</th>
+                        <th>Date d'AG</th>
+                        <th>Type</th>
+                        <th>Montant</th>
+                        <th>Nombre d'appels</th>
+                        <th>Dates des appels</th>
+                        <th>Fait</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in suivi_appels %}
+                    <tr class="{% if l.fait %}ligne-faite{% endif %}">
+                        <td class="fw-bold">{{ l.numero }}</td>
+                        <td class="text-center">{{ l.date_ag_str }}</td>
+                        <td>{{ l.type or '' }}</td>
+                        <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
+                        <td class="text-center">{{ l.nb_appels if l.nb_appels is not none }}</td>
+                        <td class="text-center">{% for a in l.appels %}{{ a.date_appel }}{{ ',' if not loop.last }}{% endfor %}</td>
+                        <td class="text-center">
+                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
+                                <input type="hidden" name="champ" value="fait">
+                                <input type="hidden" name="from" value="travaux">
+                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.fait %}checked{% endif %}>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Aucun appel de fonds à faire sur la période.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal ajout d'une ligne -->
+<div class="modal fade" id="addTravauxLigneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('travaux_add_ligne') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Ajouter une ligne</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">N° de copro <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="numero" required placeholder="Ex: 74">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date d'AG</label>
+                        <input type="date" class="form-control" name="date_ag">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <input type="text" class="form-control" name="type" placeholder="Ex: Toiture">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant (€)</label>
+                        <input type="text" class="form-control" name="montant" placeholder="Ex: 2409">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    const search = document.getElementById('travauxSearch');
+    const rows = document.querySelectorAll('#travauxTable tbody tr.travaux-row');
+    if (search) {
+        search.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            rows.forEach(function(tr) {
+                const text = tr.textContent.toLowerCase();
+                tr.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+            });
+        });
+    }
+
+    // Édition inline : clic sur une cellule -> champ -> sauvegarde
+    document.querySelectorAll('td.travaux-edit').forEach(function(td) {
+        td.addEventListener('click', function() {
+            if (td.querySelector('input')) return;
+            const champ = td.getAttribute('data-champ');
+            const ligneId = td.getAttribute('data-ligne-id');
+            const courant = td.textContent.trim();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = courant;
+            if (champ === 'montant' || champ === 'honoraire') input.placeholder = '0,00 €';
+            else if (champ === 'date_ag' || champ === 'fin_exercice') input.placeholder = 'JJ/MM/AAAA';
+            else if (champ === 'annee_cloture') input.placeholder = 'Ex: 2027';
+            td.textContent = '';
+            td.appendChild(input);
+            input.focus();
+            input.select();
+
+            function sauvegarder() {
+                const fd = new FormData();
+                fd.append('champ', champ);
+                fd.append('valeur', input.value.trim());
+                fd.append('from', 'travaux');
+                fetch("{{ url_for('travaux_save_ligne', ligne_id=0) }}".replace('/0/save', '/' + ligneId + '/save'),
+                      { method: 'POST', body: fd })
+                    .then(function() { window.location.reload(); });
+            }
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); sauvegarder(); }
+                if (e.key === 'Escape') { window.location.reload(); }
+            });
+            input.addEventListener('blur', sauvegarder);
+        });
+    });
+})();
+</script>
+{% endblock %}

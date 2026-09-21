@@ -398,6 +398,99 @@
 </div>
 {% endif %}
 
+<!-- Travaux (issues du tableau « ADF Travaux AGATE », par N° de copro) -->
+{% if travaux %}
+<div class="card mb-4">
+    <div class="card-header bg-secondary text-white">
+        <h3 class="mb-0"><i class="fas fa-tools"></i> Travaux ({{ travaux|length }})</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>Date d'AG</th>
+                        <th>Type</th>
+                        <th>Montant</th>
+                        <th>Honoraires</th>
+                        <th>Facturé</th>
+                        <th>Nombre d'appels</th>
+                        <th>Dates des appels</th>
+                        <th>Devis Validé</th>
+                        <th>OS</th>
+                        <th>Facture</th>
+                        <th>Année de Clôture</th>
+                        <th>Clôturé</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in travaux %}
+                    <tr class="{% if l.statut == 'termine' %}table-success{% endif %}">
+                        <td class="text-center">{{ l.date_ag_str }}</td>
+                        <td>{{ l.type or '' }}</td>
+                        <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
+                        <td class="text-end">{{ '%0.2f'|format(l.honoraire) if l.honoraire is not none }}{{ ' €' if l.honoraire is not none }}</td>
+                        <td class="text-center">
+                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
+                                <input type="hidden" name="champ" value="honoraire_facture">
+                                <input type="hidden" name="from" value="copropriete">
+                                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.honoraire_facture %}checked{% endif %}>
+                            </form>
+                        </td>
+                        <td class="text-center">
+                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
+                                <input type="hidden" name="champ" value="nb_appels">
+                                <input type="hidden" name="from" value="copropriete">
+                                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                                <div class="input-group input-group-sm" style="width: 90px;">
+                                    <input type="number" min="0" class="form-control" name="valeur" value="{{ l.nb_appels if l.nb_appels is not none }}">
+                                    <button type="submit" class="btn btn-outline-success"><i class="fas fa-check"></i></button>
+                                </div>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="POST" action="{{ url_for('travaux_save_appels', ligne_id=l.id) }}" class="d-flex gap-1 flex-wrap">
+                                <input type="hidden" name="from" value="copropriete">
+                                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                                {% for i in range(l.nb_appels or 0) %}
+                                <input type="text" class="form-control form-control-sm date-appel" style="width: 110px;"
+                                       name="date_{{ i }}" value="{{ l.appels[i].date_appel if l.appels|length > i else '' }}" placeholder="JJ/MM/AAAA">
+                                {% endfor %}
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Sauvegarder les dates"><i class="fas fa-check"></i></button>
+                            </form>
+                        </td>
+                        <td class="text-center">{% if l.devis_a_faire %}<span class="text-danger fw-bold">A FAIRE</span>{% else %}{{ l.devis_valide or '—' }}{% endif %}</td>
+                        <td>{{ l.os or '' }}</td>
+                        <td>{{ l.facture or '' }}</td>
+                        <td class="text-center">{{ l.annee_cloture or '' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
+                                <input type="hidden" name="champ" value="statut">
+                                <input type="hidden" name="from" value="copropriete">
+                                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                                <select class="form-select form-select-sm" name="valeur" onchange="this.form.submit()">
+                                    <option value="en_cours" {% if l.statut == 'en_cours' %}selected{% endif %}>En cours</option>
+                                    <option value="pret_ag" {% if l.statut == 'pret_ag' %}selected{% endif %}>Prêt pour AG</option>
+                                    <option value="termine" {% if l.statut == 'termine' %}selected{% endif %}>Terminé</option>
+                                </select>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted mb-0">
+            Ligne verte = Terminé. Modifiez « Nombre d'appels » pour ouvrir les cases de dates correspondantes.
+            <a href="{{ url_for('travaux_page') }}" class="text-decoration-none">
+                <i class="fas fa-arrow-right"></i> Voir le tableau complet des travaux
+            </a>
+        </p>
+    </div>
+</div>
+{% endif %}
+
 <!-- Visites d'immeuble (issues du tableau « Visites d'immeuble agate », par N° de copro) -->
 {% if visites %}
 <div class="card mb-4">
