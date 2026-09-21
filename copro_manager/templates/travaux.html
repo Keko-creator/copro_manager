@@ -226,7 +226,7 @@
 <div class="card mb-4">
     <div class="card-header bg-light">
         <h3><i class="fas fa-phone-volume"></i> Appels de fonds à faire — suivi comptable ({{ suivi_appels|length }})</h3>
-        <p class="text-muted small mb-0">Lignes avec un appel de fonds à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé.</p>
+        <p class="text-muted small mb-0">Une ligne par date d'appel : à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé ; la ligne disparaît du tableau.</p>
     </div>
     <div class="card-body">
         {% if suivi_appels %}
@@ -238,25 +238,21 @@
                         <th>Date d'AG</th>
                         <th>Type</th>
                         <th>Montant</th>
-                        <th>Nombre d'appels</th>
-                        <th>Dates des appels</th>
+                        <th>Date d'appel</th>
                         <th>Fait</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for l in suivi_appels %}
-                    <tr class="{% if l.fait %}ligne-faite{% endif %}">
+                    {% for l, a in suivi_appels %}
+                    <tr class="{% if a.fait %}ligne-faite{% endif %}">
                         <td class="fw-bold">{{ l.numero }}</td>
                         <td class="text-center">{{ l.date_ag_str }}</td>
                         <td>{{ l.type or '' }}</td>
                         <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
-                        <td class="text-center">{{ l.nb_appels if l.nb_appels is not none }}</td>
-                        <td class="text-center">{% for a in l.appels %}{{ a.date_appel }}{{ ',' if not loop.last }}{% endfor %}</td>
+                        <td class="text-center fw-bold">{{ a.date_appel }}</td>
                         <td class="text-center">
-                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
-                                <input type="hidden" name="champ" value="fait">
-                                <input type="hidden" name="from" value="travaux">
-                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.fait %}checked{% endif %}>
+                            <form method="POST" action="{{ url_for('travaux_appel_fait', appel_id=a.id) }}" class="d-inline">
+                                <input type="checkbox" class="form-check-input" name="value" value="1" onchange="this.form.submit()" {% if a.fait %}checked{% endif %}>
                             </form>
                         </td>
                     </tr>

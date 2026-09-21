@@ -329,6 +329,7 @@ class TravauxAppel(db.Model):
     ligne_id = db.Column(db.Integer, db.ForeignKey('travaux_lignes.id'), nullable=False)
     ordre = db.Column(db.Integer, nullable=False, default=0)
     date_appel = db.Column(db.String(20))       # JJ/MM/AAAA ou texte libre
+    fait = db.Column(db.Boolean, default=False)  # suivi comptable : appel de fonds fait
 
 # ========== UTILITY FUNCTIONS ==========
 def parse_date(date_str):
@@ -1047,6 +1048,15 @@ def _migrer_visite_lignes():
             conn.execute(db.text('ALTER TABLE visite_lignes ADD COLUMN mise_copro VARCHAR(20)'))
 
 
+def _migrer_travaux_appels():
+    """Ajoute la colonne fait aux appels de fonds des bases créées avant son
+    introduction (db.create_all ne migre pas les tables existantes)."""
+    with db.engine.begin() as conn:
+        colonnes = [c['name'] for c in db.inspect(conn).get_columns('travaux_appels')]
+        if 'fait' not in colonnes:
+            conn.execute(db.text('ALTER TABLE travaux_appels ADD COLUMN fait BOOLEAN DEFAULT 0'))
+
+
 def _completer_mise_copro():
     """Complète les dates de mise en copro manquantes depuis les données
     importées de l'Excel."""
@@ -1384,21 +1394,22 @@ def travaux_page():
     """Tableau des travaux + tableaux de suivi (devis à valider, appels
     de fonds à faire pour la comptable)."""
     _importer_travaux()
+    _migrer_travaux_appels()
     ctx = _travaux_context()
     aujourdhui = date.today()
     limite = aujourdhui - timedelta(days=62)
     suivi_devis = [l for l in ctx['lignes'] if l.devis_a_faire]
-    # Suivi comptable : appels de fonds à faire ou récemment faits —
-    # TOUTES les dates d'appels de la ligne (passées ≤ 2 mois et futures).
-    def _appels_a_suivre(ligne):
-        if ligne.fait:
-            return True
-        for a in ligne.appels:
-            d = _date_fr_vers_iso(a.date_appel)
-            if d is not None and (limite <= d <= aujourdhui or d > aujourdhui):
-                return True
-        return False
-    suivi_appels = [l for l in ctx['lignes'] if _appels_a_suivre(l)]
+    # Suivi comptable : une ligne par date d'appel (à venir ou ≤ 2 mois).
+    def _appel_a_suivre(ligne, appel):
+        d = _date_fr_vers_iso(appel.date_appel)
+        return not appel.fait and d is not None and (limite <= d <= aujourdhui or d > aujourdhui)
+
+    suivi_appels = []
+    for l in ctx['lignes']:
+        for a in l.appels:
+            if _appel_a_suivre(l, a):
+                suivi_appels.append((l, a))
+    suivi_appels.sort(key=lambda pa: _date_fr_vers_iso(pa[1].date_appel) or date.max)
     return render_template('travaux.html', **ctx,
                            suivi_devis=suivi_devis, suivi_appels=suivi_appels)
 
@@ -1507,6 +1518,16 @@ def travaux_save_appel():
     return redirect(url_for('travaux_page'))
 
 
+@app.route('/travaux/appel/<int:appel_id>/fait', methods=['POST'], endpoint='travaux_appel_fait')
+def travaux_appel_fait(appel_id):
+    """Coche/décoche « Fait » pour une date d'appel de fonds du suivi comptable."""
+    _migrer_travaux_appels()
+    appel = TravauxAppel.query.get_or_404(appel_id)
+    appel.fait = not appel.fait
+    db.session.commit()
+    return redirect(url_for('travaux_page'))
+
+
 @app.route('/travaux/ligne/<int:ligne_id>/appels', methods=['POST'], endpoint='travaux_save_appels')
 def travaux_save_appels(ligne_id):
     """Remplace toutes les dates d'appels de fonds d'une ligne par celles
@@ -1521,9 +1542,11 @@ def travaux_save_appels(ligne_id):
         if valeur:
             dates.append(valeur)
         i += 1
+    faits_existants = {a.date_appel: a.fait for a in TravauxAppel.query.filter_by(ligne_id=ligne_id).all()}
     TravauxAppel.query.filter_by(ligne_id=ligne_id).delete()
     for ordre, d in enumerate(dates):
-        db.session.add(TravauxAppel(ligne_id=ligne_id, ordre=ordre, date_appel=d))
+        db.session.add(TravauxAppel(ligne_id=ligne_id, ordre=ordre, date_appel=d,
+                                    fait=faits_existants.get(d, False)))
     if nb:
         try:
             ligne.nb_appels = int(nb)
