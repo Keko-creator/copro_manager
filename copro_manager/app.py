@@ -1384,8 +1384,14 @@ def travaux_page():
     aujourdhui = date.today()
     limite = aujourdhui - timedelta(days=62)
     suivi_devis = [l for l in ctx['lignes'] if l.devis_a_faire]
-    suivi_appels = [l for l in ctx['lignes']
-                    if l.premiere_date_appel and limite <= l.premiere_date_appel <= aujourdhui]
+    # Suivi comptable : appels de fonds à faire ou récemment faits —
+    # TOUTES les dates d'appels de la ligne (passées ≤ 2 mois et futures).
+    def _appels_a_suivre(ligne):
+        if ligne.fait:
+            return True
+        return any(limite <= d <= aujourdhui or d > aujourdhui
+                  for d in (_date_fr_vers_iso(a.date_appel) for a in ligne.appels))
+    suivi_appels = [l for l in ctx['lignes'] if _appels_a_suivre(l)]
     return render_template('travaux.html', **ctx,
                            suivi_devis=suivi_devis, suivi_appels=suivi_appels)
 
