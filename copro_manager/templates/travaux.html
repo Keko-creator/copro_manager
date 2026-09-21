@@ -3,7 +3,9 @@
 {% block styles %}
 <style>
     .travaux-scroll-wrapper {
-        max-height: 75vh;
+        position: sticky;
+        top: 0;
+        max-height: calc(100vh - 140px);
         overflow: auto;
         border: 1px solid #dee2e6;
     }
@@ -122,7 +124,7 @@
                             <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
                                 <input type="hidden" name="champ" value="honoraire_facture">
                                 <input type="hidden" name="from" value="travaux">
-                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.honoraire_facture %}checked{% endif %}>
+                                <input type="checkbox" class="form-check-input" name="valeur" value="1" onchange="this.form.submit()" {% if l.honoraire_facture %}checked{% endif %}>
                             </form>
                         </td>
                         <td class="travaux-edit" data-champ="nb_appels" data-ligne-id="{{ l.id }}">{{ l.nb_appels if l.nb_appels is not none }}</td>
@@ -158,12 +160,17 @@
                             </form>
                         </td>
                         <td>
-                            <form method="POST" action="{{ url_for('travaux_delete_ligne', ligne_id=l.id) }}"
-                                  class="d-inline" onsubmit="return confirm('Supprimer cette ligne de travaux ?');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
-                                    <i class="fas fa-trash"></i>
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button type="button" class="btn btn-sm btn-outline-primary btn-modifier" data-ligne-id="{{ l.id }}" title="Modifier la ligne">
+                                    <i class="fas fa-edit"></i>
                                 </button>
-                            </form>
+                                <form method="POST" action="{{ url_for('travaux_delete_ligne', ligne_id=l.id) }}"
+                                      class="d-inline" onsubmit="return confirm('Supprimer cette ligne de travaux ?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -171,7 +178,7 @@
             </table>
         </div>
         <p class="text-muted small mt-2 mb-0">
-            <i class="fas fa-edit"></i> Cliquez sur une cellule pour la modifier (dates JJ/MM/AAAA).
+            <i class="fas fa-edit"></i> Cliquez sur une cellule ou sur le bouton <i class="fas fa-edit"></i> d'une ligne pour la modifier (dates JJ/MM/AAAA).
             Cliquez sur un en-tête de colonne pour trier (1er clic : croissant ; 2e clic : décroissant ; tri par défaut : Date d'AG, la plus récente en haut).
             Ligne verte = Terminé ; case verte = Honoraires facturés ; <span class="texte-a-faire">A FAIRE</span> = devis à valider.
         </p>
@@ -226,7 +233,7 @@
 <div class="card mb-4">
     <div class="card-header bg-light">
         <h3><i class="fas fa-phone-volume"></i> Appels de fonds à faire — suivi comptable ({{ suivi_appels|length }})</h3>
-        <p class="text-muted small mb-0">Lignes avec un appel de fonds à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé.</p>
+        <p class="text-muted small mb-0">Une ligne par date d'appel : à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé ; la ligne disparaît du tableau.</p>
     </div>
     <div class="card-body">
         {% if suivi_appels %}
@@ -238,25 +245,21 @@
                         <th>Date d'AG</th>
                         <th>Type</th>
                         <th>Montant</th>
-                        <th>Nombre d'appels</th>
-                        <th>Dates des appels</th>
+                        <th>Date d'appel</th>
                         <th>Fait</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for l in suivi_appels %}
-                    <tr class="{% if l.fait %}ligne-faite{% endif %}">
+                    {% for l, a in suivi_appels %}
+                    <tr class="{% if a.fait %}ligne-faite{% endif %}">
                         <td class="fw-bold">{{ l.numero }}</td>
                         <td class="text-center">{{ l.date_ag_str }}</td>
                         <td>{{ l.type or '' }}</td>
                         <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
-                        <td class="text-center">{{ l.nb_appels if l.nb_appels is not none }}</td>
-                        <td class="text-center">{% for a in l.appels %}{{ a.date_appel }}{{ ',' if not loop.last }}{% endfor %}</td>
+                        <td class="text-center fw-bold">{{ a.date_appel }}</td>
                         <td class="text-center">
-                            <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
-                                <input type="hidden" name="champ" value="fait">
-                                <input type="hidden" name="from" value="travaux">
-                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.fait %}checked{% endif %}>
+                            <form method="POST" action="{{ url_for('travaux_appel_fait', appel_id=a.id) }}" class="d-inline">
+                                <input type="checkbox" class="form-check-input" name="value" value="1" onchange="this.form.submit()" {% if a.fait %}checked{% endif %}>
                             </form>
                         </td>
                     </tr>
@@ -420,6 +423,23 @@
             });
         });
     }
+
+    // Bouton Modifier : ouvre la saisie sur la première cellule éditable de la ligne
+    document.querySelectorAll('.btn-modifier').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const tr = btn.closest('tr');
+            const cellule = tr.querySelector('td.travaux-edit');
+            if (!cellule) return;
+            const wrapper = document.querySelector('.travaux-scroll-wrapper');
+            if (wrapper) {
+                const r = cellule.getBoundingClientRect();
+                const w = wrapper.getBoundingClientRect();
+                if (r.bottom > w.bottom || r.top < w.top)
+                    wrapper.scrollTop += r.top - w.top - 10;
+            }
+            if (!cellule.querySelector('input')) cellule.click();
+        });
+    });
 
     // Édition inline : clic sur une cellule -> champ -> sauvegarde
     document.querySelectorAll('td.travaux-edit').forEach(function(td) {
