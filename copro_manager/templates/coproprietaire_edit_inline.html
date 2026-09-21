@@ -124,6 +124,11 @@
                  {% if not cp.est_residence_principale and not cp.est_loue %}checked{% endif %}>
           <label class="form-check-label">Aucun des deux</label>
         </div>
+        <div class="form-check mt-2">
+          <input type="checkbox" class="form-check-input" name="est_conseil_syndical" value="1"
+                 {% if cp.est_conseil_syndical %}checked{% endif %}>
+          <label class="form-check-label">Membre du Conseil Syndical</label>
+        </div>
       </div>
     </div>
 

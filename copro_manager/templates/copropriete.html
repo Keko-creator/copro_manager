@@ -107,6 +107,10 @@
                                 <dd class="col-sm-7">{{ copropriete.commercial or 'N/C' }}</dd>
                                 <dt class="col-sm-5">Notaire :</dt>
                                 <dd class="col-sm-7">{{ copropriete.notaire or 'N/C' }}</dd>
+                                <dt class="col-sm-5">Membres du Conseil Syndical :</dt>
+                                <dd class="col-sm-7">
+                                    {{ coproprietaires | selectattr('est_conseil_syndical') | list | length }}
+                                </dd>
                             </dl>
                         </div>
                     </div>
@@ -228,6 +232,7 @@
                         <th>Emails</th>
                         <th>Téléphones</th>
                         <th>Statut</th>
+                        <th>Conseil Syndical</th>
                         <th>Locataire</th>
                         <th>Actions</th>
                     </tr>
@@ -294,6 +299,15 @@
                                 <span class="badge bg-warning text-dark">Lot loué</span>
                             {% else %}
                                 <span class="badge bg-secondary">Autre</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Conseil Syndical -->
+                        <td>
+                            {% if cp.est_conseil_syndical %}
+                                <span class="badge bg-info text-dark">Conseil Syndical</span>
+                            {% else %}
+                                —
                             {% endif %}
                         </td>
 
