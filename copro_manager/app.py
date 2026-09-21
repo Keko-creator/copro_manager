@@ -1288,11 +1288,13 @@ def visites_export():
 # ========== ONGLET TRAVAUX (tableau « ADF Travaux AGATE ») ==========
 
 def _date_fr_vers_iso(valeur):
-    """Convertit JJ/MM/AAAA en date ; renvoie None sinon."""
-    try:
-        return datetime.strptime((valeur or '').strip(), '%d/%m/%Y').date()
-    except ValueError:
-        return None
+    """Convertit JJ/MM/AAAA (ou JJ/MM/AA) en date ; renvoie None sinon."""
+    for fmt in ('%d/%m/%Y', '%d/%m/%y'):
+        try:
+            return datetime.strptime((valeur or '').strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def _premiere_date_appel(ligne):
@@ -1503,8 +1505,10 @@ def travaux_save_appel():
 @app.route('/travaux/ligne/<int:ligne_id>/appels', methods=['POST'], endpoint='travaux_save_appels')
 def travaux_save_appels(ligne_id):
     """Remplace toutes les dates d'appels de fonds d'une ligne par celles
-    soumises (champs date_0, date_1, ...). Une date vide est ignorée."""
+    soumises (champs date_0, date_1, ...). Une date vide est ignorée.
+    Le champ optionnel « nb » met à jour le nombre d'appels."""
     ligne = TravauxLigne.query.get_or_404(ligne_id)
+    nb = request.form.get('nb', '').strip()
     dates = []
     i = 0
     while f'date_{i}' in request.form:
@@ -1515,7 +1519,12 @@ def travaux_save_appels(ligne_id):
     TravauxAppel.query.filter_by(ligne_id=ligne_id).delete()
     for ordre, d in enumerate(dates):
         db.session.add(TravauxAppel(ligne_id=ligne_id, ordre=ordre, date_appel=d))
-    if not ligne.nb_appels or ligne.nb_appels < len(dates):
+    if nb:
+        try:
+            ligne.nb_appels = int(nb)
+        except ValueError:
+            pass
+    elif not ligne.nb_appels or ligne.nb_appels < len(dates):
         ligne.nb_appels = len(dates)
     db.session.commit()
     flash('Dates des appels de fonds sauvegardées.', 'success')

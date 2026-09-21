@@ -99,6 +99,7 @@
                         <th>Honoraires</th>
                         <th>Facturé</th>
                         <th>Nombre d'appels</th>
+                        <th>Appels (dates)</th>
                         <th>Téthrawin</th>
                         <th>Devis Validé</th>
                         <th>OS</th>
@@ -125,6 +126,19 @@
                             </form>
                         </td>
                         <td class="travaux-edit" data-champ="nb_appels" data-ligne-id="{{ l.id }}">{{ l.nb_appels if l.nb_appels is not none }}</td>
+                        <td class="text-center">
+                            <div class="d-flex gap-1 align-items-center flex-wrap">
+                                {% for a in l.appels %}
+                                    <span class="badge bg-light text-dark border">{{ a.date_appel }}</span>
+                                {% endfor %}
+                                <button type="button" class="btn btn-sm btn-outline-primary btn-appels"
+                                        data-ligne-id="{{ l.id }}" data-nb="{{ l.nb_appels or 0 }}"
+                                        data-dates='{{ l.appels | map(attribute="date_appel") | list | tojson }}'
+                                        title="Saisir les dates des appels de fonds">
+                                    <i class="fas fa-calendar-plus"></i> Dates d'appels
+                                </button>
+                            </div>
+                        </td>
                         <td class="travaux-edit" data-champ="tethrawin" data-ligne-id="{{ l.id }}">{{ l.tethrawin or '' }}</td>
                         <td class="travaux-edit" data-champ="devis_valide" data-ligne-id="{{ l.id }}">
                             {% if l.devis_a_faire %}<span class="texte-a-faire">A FAIRE</span>{% else %}{{ l.devis_valide or '' }}{% endif %}
@@ -256,6 +270,32 @@
     </div>
 </div>
 
+<!-- Modal dates d'appels de fonds -->
+<div class="modal fade" id="appelsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('travaux_save_appels', ligne_id=0) }}" id="appelsForm">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-calendar-plus"></i> Dates des appels de fonds</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre d'appels</label>
+                        <input type="number" min="0" class="form-control" id="appelsNb" value="0">
+                        <p class="text-muted small mt-1 mb-0">Saisir un nombre, autant de cases de dates s'ouvrent (ex : 2 → deux cases).</p>
+                    </div>
+                    <div id="appelsDates"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal ajout d'une ligne -->
 <div class="modal fade" id="addTravauxLigneModal" tabindex="-1">
     <div class="modal-dialog">
@@ -336,6 +376,47 @@
                     return desc ? -cmp : cmp;
                 });
                 rows.forEach(function(tr) { tbody.appendChild(tr); });
+            });
+        });
+    }
+
+    // Modal dates d'appels de fonds : nombre de cases = nombre saisi
+    const appelsModal = document.getElementById('appelsModal');
+    const appelsNb = document.getElementById('appelsNb');
+    const appelsDates = document.getElementById('appelsDates');
+    const appelsForm = document.getElementById('appelsForm');
+    if (appelsModal && appelsNb && appelsDates && appelsForm) {
+        function construireCases() {
+            const nb = Math.max(0, parseInt(appelsNb.value, 10) || 0);
+            const existantes = appelsDates.getAttribute('data-dates') || '[]';
+            let dates = [];
+            try { dates = JSON.parse(existantes); } catch (e) { dates = []; }
+            appelsDates.innerHTML = '';
+            for (let i = 0; i < nb; i++) {
+                const div = document.createElement('div');
+                div.className = 'mb-2';
+                const label = document.createElement('label');
+                label.className = 'form-label mb-1';
+                label.textContent = 'Appel n°' + (i + 1);
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control';
+                input.name = 'date_' + i;
+                input.placeholder = 'JJ/MM/AAAA';
+                input.value = dates[i] || '';
+                div.appendChild(label);
+                div.appendChild(input);
+                appelsDates.appendChild(div);
+            }
+        }
+        appelsNb.addEventListener('input', construireCases);
+        document.querySelectorAll('.btn-appels').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const nb = parseInt(btn.getAttribute('data-nb'), 10) || 0;
+                appelsNb.value = nb;
+                appelsDates.setAttribute('data-dates', btn.getAttribute('data-dates') || '[]');
+                appelsForm.action = "{{ url_for('travaux_save_appels', ligne_id=0) }}".replace('/0/appels', '/' + btn.getAttribute('data-ligne-id') + '/appels');
+                construireCases();
             });
         });
     }
