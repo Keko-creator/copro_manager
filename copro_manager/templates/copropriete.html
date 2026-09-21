@@ -384,6 +384,58 @@
 </div>
 {% endif %}
 
+<!-- Visites d'immeuble (issues du tableau « Visites d'immeuble agate », par N° de copro) -->
+{% if visites %}
+<div class="card mb-4">
+    <div class="card-header bg-info text-dark">
+        <h3 class="mb-0"><i class="fas fa-clipboard-check"></i> Visites d'immeuble</h3>
+    </div>
+    <div class="card-body">
+        {% if visites.visites %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        {% for v in visites.visites %}
+                        <th>{{ v.annee }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="text-center">
+                        {% for v in visites.visites %}
+                        <td>
+                            <form method="POST" action="{{ url_for('visites_save_cellule') }}" class="d-inline">
+                                <input type="hidden" name="ligne_id" value="{{ visites.ligne_id }}">
+                                <input type="hidden" name="colonne_id" value="{{ v.colonne_id }}">
+                                <input type="hidden" name="from" value="copropriete">
+                                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" name="valeur" value="{{ v.valeur }}" placeholder="JJ/MM/AAAA">
+                                    <button type="submit" class="btn btn-outline-success" title="Sauvegarder la date de visite {{ v.annee }}">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </td>
+                        {% endfor %}
+                        </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-2">Aucune visite enregistrée pour cette copropriété.</p>
+        {% endif %}
+        <p class="text-muted mb-0">
+            Seules les années avec une date de visite renseignée sont affichées.
+            <a href="{{ url_for('visites_page') }}" class="text-decoration-none">
+                <i class="fas fa-arrow-right"></i> Voir le tableau complet des visites
+            </a>
+        </p>
+    </div>
+</div>
+{% endif %}
+
 <!-- Honoraires (issus du tableau « Honoraire agate », répliqués par N° de copro) -->
 {% if honoraire_ligne %}
 <div class="card mb-4">
