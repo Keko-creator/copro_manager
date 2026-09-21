@@ -281,6 +281,7 @@ class VisiteLigne(db.Model):
     __tablename__ = 'visite_lignes'
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.Integer)  # N° de copro
+    mise_copro = db.Column(db.String(20))  # date de mise en copro (JJ/MM/AAAA)
     ordre = db.Column(db.Integer, nullable=False, default=0)
     cellules = db.relationship('VisiteCellule', backref='ligne', lazy=True, cascade="all, delete-orphan")
 
@@ -990,11 +991,38 @@ def _normaliser_visite(valeur):
         return valeur
 
 
+def _migrer_visite_lignes():
+    """Ajoute la colonne mise_copro aux bases créées avant son introduction
+    (db.create_all ne migre pas les tables existantes)."""
+    with db.engine.begin() as conn:
+        colonnes = [c['name'] for c in db.inspect(conn).get_columns('visite_lignes')]
+        if 'mise_copro' not in colonnes:
+            conn.execute(db.text('ALTER TABLE visite_lignes ADD COLUMN mise_copro VARCHAR(20)'))
+
+
+def _completer_mise_copro():
+    """Complète les dates de mise en copro manquantes depuis les données
+    importées de l'Excel."""
+    par_numero = {l['numero']: l.get('mise_copro', '') for l in VISITES_LIGNES}
+    maj = False
+    for ligne in VisiteLigne.query.all():
+        if (ligne.mise_copro or '').strip():
+            continue
+        valeur = _normaliser_visite(par_numero.get(ligne.numero, ''))
+        if valeur:
+            ligne.mise_copro = valeur
+            maj = True
+    if maj:
+        db.session.commit()
+
+
 def _importer_visites():
     """Importe les lignes du tableau « Visites d'immeuble agate » (une seule
     fois, si les tables sont vides). Une fois fait, le fichier Excel peut
     être supprimé."""
+    _migrer_visite_lignes()
     if VisiteColonne.query.count() > 0 or VisiteLigne.query.count() > 0:
+        _completer_mise_copro()
         return
     colonnes = {}
     for i, annee in enumerate(VISITES_ANNEES):
@@ -1003,7 +1031,8 @@ def _importer_visites():
         colonnes[annee] = col
     db.session.flush()
     for i, l in enumerate(VISITES_LIGNES):
-        ligne = VisiteLigne(numero=l['numero'], ordre=i)
+        ligne = VisiteLigne(numero=l['numero'], ordre=i,
+                            mise_copro=_normaliser_visite(l.get('mise_copro', '')))
         db.session.add(ligne)
         db.session.flush()
         for annee, valeur in l['visites'].items():
@@ -1026,6 +1055,7 @@ def _visites_context():
         rows.append({
             'id': ligne.id,
             'numero': ligne.numero,
+            'mise_copro': ligne.mise_copro or '',
             'valeurs': [cellules.get(col.id, '') for col in colonnes],
         })
     return {'colonnes': colonnes, 'rows': rows}
@@ -1079,6 +1109,16 @@ def visites_delete_ligne(ligne_id):
     db.session.commit()
     flash('Ligne supprimée.', 'success')
     return redirect(url_for('visites_page'))
+
+
+@app.route('/visites/ligne/<int:ligne_id>/mise-copro', methods=['POST'], endpoint='visites_save_mise_copro')
+def visites_save_mise_copro(ligne_id):
+    """Sauvegarde la date de mise en copro d'une ligne (JJ/MM/AAAA)."""
+    ligne = VisiteLigne.query.get_or_404(ligne_id)
+    ligne.mise_copro = (request.form.get('valeur') or '').strip()
+    db.session.commit()
+    flash('Date de mise en copro sauvegardée.', 'success')
+    return redirect(request.referrer or url_for('visites_page'))
 
 
 @app.route('/visites/colonne/add', methods=['POST'], endpoint='visites_add_colonne')
@@ -1162,7 +1202,7 @@ def visites_export():
         top=Side(style="thin"), bottom=Side(style="thin"))
     centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    headers = ['N° de copro'] + [c.annee for c in colonnes]
+    headers = ['N° de copro', 'Mise en copro'] + [c.annee for c in colonnes]
     for c, h in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=c, value=h)
         cell.font = gras_blanc
@@ -1174,14 +1214,16 @@ def visites_export():
     for ligne in lignes:
         cellules = {cl.colonne_id: cl.valeur for cl in ligne.cellules}
         ws.cell(row=ligne_excel, column=1, value=ligne.numero).border = bordure
-        for c, col in enumerate(colonnes, start=2):
+        ws.cell(row=ligne_excel, column=2, value=ligne.mise_copro or '').border = bordure
+        for c, col in enumerate(colonnes, start=3):
             ws.cell(row=ligne_excel, column=c, value=cellules.get(col.id, '')).border = bordure
         ligne_excel += 1
 
     ws.column_dimensions['A'].width = 14
-    for c in range(2, len(headers) + 1):
+    ws.column_dimensions['B'].width = 16
+    for c in range(3, len(headers) + 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = 14
-    ws.freeze_panes = "B2"
+    ws.freeze_panes = "C2"
 
     nom_fichier = f"visites_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
     tampon = io.BytesIO()
