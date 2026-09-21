@@ -46,6 +46,19 @@
         background: transparent;
         text-align: center;
     }
+    .visite-scroll-wrapper td.visite-mise {
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .visite-scroll-wrapper td.visite-mise:hover {
+        background-color: #e9ecef;
+    }
+    .visite-scroll-wrapper td.visite-mise input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 {% block content %}
@@ -94,6 +107,7 @@
                 <thead class="table-dark">
                     <tr class="text-center">
                         <th>N° de copro</th>
+                        <th>Mise en copro</th>
                         {% for col in colonnes %}
                         <th>
                             <div class="d-flex justify-content-between align-items-center">
@@ -114,6 +128,9 @@
                     {% for row in rows %}
                     <tr class="visite-row">
                         <td class="fw-bold">{{ row.numero }}</td>
+                        <td class="visite-mise text-center"
+                            data-url="{{ url_for('visites_save_mise_copro', ligne_id=row.id) }}"
+                            title="Cliquez pour saisir/modifier la date de mise en copro">{{ row.mise_copro or '' }}</td>
                         {% for cell in row.valeurs %}
                         <td class="visite-cell text-center"
                             data-ligne-id="{{ row.id }}"
@@ -225,34 +242,47 @@
     }
 
     // Édition inline d'une cellule : clic -> champ de saisie -> sauvegarde
+    function editerInline(td, url, champs) {
+        if (td.querySelector('input')) return;
+        const valeurActuelle = td.textContent.trim();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = valeurActuelle;
+        input.placeholder = 'JJ/MM/AAAA';
+        td.textContent = '';
+        td.appendChild(input);
+        input.focus();
+        input.select();
+
+        function sauvegarder() {
+            const fd = new FormData();
+            champs.forEach(function([nom, val]) { fd.append(nom, val); });
+            fd.append('valeur', input.value.trim());
+            fetch(url, { method: 'POST', body: fd })
+                .then(function() { window.location.reload(); });
+        }
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); sauvegarder(); }
+            if (e.key === 'Escape') { window.location.reload(); }
+        });
+        input.addEventListener('blur', sauvegarder);
+    }
+
     document.querySelectorAll('td.visite-cell').forEach(function(td) {
         td.addEventListener('click', function() {
-            if (td.querySelector('input')) return;
-            const valeurActuelle = td.textContent.trim();
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = valeurActuelle;
-            input.placeholder = 'JJ/MM/AAAA';
-            td.textContent = '';
-            td.appendChild(input);
-            input.focus();
-            input.select();
+            editerInline(td, "{{ url_for('visites_save_cellule') }}", [
+                ['ligne_id', td.getAttribute('data-ligne-id')],
+                ['colonne_id', td.getAttribute('data-colonne-id')],
+                ['from', 'visites'],
+            ]);
+        });
+    });
 
-            function sauvegarder() {
-                const fd = new FormData();
-                fd.append('ligne_id', td.getAttribute('data-ligne-id'));
-                fd.append('colonne_id', td.getAttribute('data-colonne-id'));
-                fd.append('valeur', input.value.trim());
-                fd.append('from', 'visites');
-                fetch("{{ url_for('visites_save_cellule') }}", { method: 'POST', body: fd })
-                    .then(function() { window.location.reload(); });
-            }
-
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') { e.preventDefault(); sauvegarder(); }
-                if (e.key === 'Escape') { window.location.reload(); }
-            });
-            input.addEventListener('blur', sauvegarder);
+    // Édition inline de la date de mise en copro
+    document.querySelectorAll('td.visite-mise').forEach(function(td) {
+        td.addEventListener('click', function() {
+            editerInline(td, td.getAttribute('data-url'), []);
         });
     });
 })();
