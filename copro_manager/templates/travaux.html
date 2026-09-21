@@ -78,6 +78,13 @@
 
 <!-- ================= TABLEAU PRINCIPAL ================= -->
 <div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h3 class="mb-0"><i class="fas fa-table"></i> Tableau des travaux</h3>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#travauxTableCollapse" aria-expanded="false" aria-controls="travauxTableCollapse">
+            <i class="fas fa-eye"></i> Masquer / Afficher
+        </button>
+    </div>
+    <div class="collapse" id="travauxTableCollapse">
     <div class="card-body">
         {% if lignes %}
         <div class="table-responsive travaux-scroll-wrapper">
@@ -104,12 +111,12 @@
                 <tbody>
                     {% for l in lignes %}
                     <tr class="travaux-row {% if l.statut == 'termine' %}ligne-terminee{% endif %}">
-                        <td class="fw-bold">{{ l.numero }}</td>
+                        <td class="fw-bold" data-sort-value="{{ l.numero }}">{{ l.numero }}</td>
                         <td class="travaux-edit" data-champ="fin_exercice" data-ligne-id="{{ l.id }}">{{ l.fin_exercice_str or '' }}</td>
-                        <td class="travaux-edit" data-champ="date_ag" data-ligne-id="{{ l.id }}">{{ l.date_ag_str or '' }}</td>
+                        <td class="travaux-edit" data-champ="date_ag" data-ligne-id="{{ l.id }}" data-sort-value="{{ l.date_ag.strftime('%Y%m%d') if l.date_ag else '' }}">{{ l.date_ag_str or '' }}</td>
                         <td class="travaux-edit" data-champ="type" data-ligne-id="{{ l.id }}">{{ l.type or '' }}</td>
-                        <td class="travaux-edit text-end" data-champ="montant" data-ligne-id="{{ l.id }}">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
-                        <td class="travaux-edit text-end" data-champ="honoraire" data-ligne-id="{{ l.id }}">{{ '%0.2f'|format(l.honoraire) if l.honoraire is not none }}{{ ' €' if l.honoraire is not none }}</td>
+                        <td class="travaux-edit text-end" data-champ="montant" data-ligne-id="{{ l.id }}" data-sort-value="{{ l.montant if l.montant is not none else '' }}">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
+                        <td class="travaux-edit text-end" data-champ="honoraire" data-ligne-id="{{ l.id }}" data-sort-value="{{ l.honoraire if l.honoraire is not none else '' }}">{{ '%0.2f'|format(l.honoraire) if l.honoraire is not none }}{{ ' €' if l.honoraire is not none }}</td>
                         <td class="text-center {% if l.honoraire_facture %}case-facture-verte{% endif %}">
                             <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
                                 <input type="hidden" name="champ" value="honoraire_facture">
@@ -151,12 +158,13 @@
         </div>
         <p class="text-muted small mt-2 mb-0">
             <i class="fas fa-edit"></i> Cliquez sur une cellule pour la modifier (dates JJ/MM/AAAA).
-            « Nombre d'appels » : saisir un nombre, les cases de dates s'ouvrent dans la fiche copropriété ou via le bouton dédié.
+            Cliquez sur un en-tête de colonne pour trier (1er clic : croissant ; 2e clic : décroissant ; tri par défaut : Date d'AG, la plus récente en haut).
             Ligne verte = Terminé ; case verte = Honoraires facturés ; <span class="texte-a-faire">A FAIRE</span> = devis à valider.
         </p>
         {% else %}
         <div class="alert alert-info">Aucune ligne de travaux.</div>
         {% endif %}
+    </div>
     </div>
 </div>
 
@@ -204,7 +212,7 @@
 <div class="card mb-4">
     <div class="card-header bg-light">
         <h3><i class="fas fa-phone-volume"></i> Appels de fonds à faire — suivi comptable ({{ suivi_appels|length }})</h3>
-        <p class="text-muted small mb-0">Lignes dont un appel de fonds a une date comprise entre il y a deux mois et aujourd'hui. Cochez « Fait » une fois l'appel de fonds envoyé.</p>
+        <p class="text-muted small mb-0">Lignes avec un appel de fonds à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé.</p>
     </div>
     <div class="card-body">
         {% if suivi_appels %}
@@ -295,6 +303,39 @@
             rows.forEach(function(tr) {
                 const text = tr.textContent.toLowerCase();
                 tr.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+            });
+        });
+    }
+
+    // Tri par colonne : clic sur un en-tête (1er clic croissant, 2e décroissant)
+    const table = document.getElementById('travauxTable');
+    if (table) {
+        table.querySelectorAll('thead th').forEach(function(th, colIndex) {
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', function(e) {
+                if (e.target.closest('form') || e.target.closest('select') || e.target.closest('input')) return;
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const desc = th.getAttribute('data-sort-dir') === 'asc';
+                th.setAttribute('data-sort-dir', desc ? 'desc' : 'asc');
+                // valeur de tri : attribut data-sort-value sinon texte de la cellule
+                const cellValue = function(tr) {
+                    const td = tr.children[colIndex];
+                    if (!td) return '';
+                    const custom = td.getAttribute('data-sort-value');
+                    return custom !== null ? custom : td.textContent.trim();
+                };
+                rows.sort(function(a, b) {
+                    const va = cellValue(a), vb = cellValue(b);
+                    let cmp;
+                    const na = parseFloat(va.replace(/[\s€,]/g, '').replace(',', '.')), nb = parseFloat(vb.replace(/[\s€,]/g, '').replace(',', '.'));
+                    const dda = va.match(/^(\d{2})\/(\d{2})\/(\d{4})$/), ddb = vb.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                    if (dda && ddb) cmp = (+dda[3] * 10000 + +dda[2] * 100 + +dda[1]) - (+ddb[3] * 10000 + +ddb[2] * 100 + +ddb[1]);
+                    else if (!isNaN(na) && !isNaN(nb) && va !== '' && vb !== '') cmp = na - nb;
+                    else cmp = va.localeCompare(vb, 'fr', {numeric: true});
+                    return desc ? -cmp : cmp;
+                });
+                rows.forEach(function(tr) { tbody.appendChild(tr); });
             });
         });
     }
