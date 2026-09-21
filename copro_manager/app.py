@@ -6,6 +6,7 @@ import os
 import json
 from sqlalchemy.orm import joinedload
 from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute COPROPRIETES_DATA
+from honoraires_data import HONORAIRE_DATA
 
 # ========== CONFIGURATION ==========
 app = Flask(__name__)
@@ -232,6 +233,35 @@ class AssuranceCellule(db.Model):
     ligne_id = db.Column(db.Integer, db.ForeignKey('assurance_lignes.id'), nullable=False)
     colonne_id = db.Column(db.Integer, db.ForeignKey('assurance_colonnes.id'), nullable=False)
     valeur = db.Column(db.Text)
+
+# ========== MODÈLE POUR LE TABLEAU HONORAIRES ("Honoraire agate") ==========
+# Une ligne = une copropriété. Les colonnes "€ TTC 1er et 2e Trimestre",
+# "€ TTC 3e et 4e Trimestre", "Total € TTC" et "Total € HT" sont calculées
+# automatiquement (recalculées à chaque sauvegarde), sauf pour les lignes
+# dont le type de facturation est "Spécifique" (montants figés).
+
+TYPE_FACTURATION = ['Classique', 'Forfait', 'ASL', 'Spécifique']
+
+class HonoraireLigne(db.Model):
+    __tablename__ = 'honoraire_lignes'
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.Integer)  # N° de copro
+    ordre = db.Column(db.Integer, nullable=False, default=0)
+    mise_copro = db.Column(db.Date)          # Mise en copro
+    fin_contrat = db.Column(db.Date)         # Fin de contrat
+    type_facturation = db.Column(db.String(50))  # Type de facturation
+    logements = db.Column(db.Integer)         # Logements
+    tarif_s1 = db.Column(db.Float)            # € TTC / LP 1er semestre
+    tarif_s2 = db.Column(db.Float)            # € TTC / LP 2e semestre
+    t12 = db.Column(db.Float)                 # € TTC 1er et 2e Trimestre
+    t34 = db.Column(db.Float)                 # € TTC 3e et 4e Trimestre
+    total_ttc = db.Column(db.Float)           # Total € TTC
+    total_ht = db.Column(db.Float)            # Total € HT
+    est_total = db.Column(db.Boolean, default=False)
+
+    @property
+    def est_specifique(self):
+        return (self.type_facturation or '').strip().lower() == 'spécifique'
 
 # ========== UTILITY FUNCTIONS ==========
 def parse_date(date_str):
@@ -640,6 +670,260 @@ def assurance_save_cellule():
     flash('Cellule sauvegardée et recalculée.', 'success')
     return redirect(url_for('assurance_page'))
 
+# ========== ONGLET HONORAIRES (tableau « Honoraire agate ») ==========
+
+def _fmt_euro(valeur):
+    """Formate un montant en euros avec le signe € (ex: 1 296,00 €)."""
+    if valeur is None:
+        return ''
+    try:
+        nombre = float(valeur)
+    except (ValueError, TypeError):
+        return str(valeur)
+    texte = f"{nombre:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{texte} €"
+
+
+@app.template_filter('euro')
+def _euro_filter(valeur):
+    return _fmt_euro(valeur)
+
+
+def _importer_honoraires():
+    """Importe les lignes du tableau « Honoraire agate » (une seule fois,
+    si la table est vide). Une fois fait, le fichier Excel peut être supprimé."""
+    if HonoraireLigne.query.count() > 0:
+        return
+    for i, d in enumerate(HONORAIRE_DATA):
+        ligne = HonoraireLigne(
+            numero=d['numero'],
+            ordre=i,
+            mise_copro=parse_date(d['mise_copro']) if d['mise_copro'] else None,
+            fin_contrat=parse_date(d['fin_contrat']) if d['fin_contrat'] else None,
+            type_facturation=d['type'],
+            logements=d['logements'],
+            tarif_s1=d['tarif_s1'],
+            tarif_s2=d['tarif_s2'],
+            t12=d['t12'],
+            t34=d['t34'],
+            total_ttc=d['total_ttc'],
+            total_ht=d['total_ht'],
+        )
+        db.session.add(ligne)
+    db.session.commit()
+
+
+def _recalculer_ligne_honoraire(ligne, tarif_s1=None, tarif_s2=None):
+    """Recalcule les colonnes t12 / t34 / total_ttc / total_ht d'une ligne.
+
+    Ne recalcule PAS si le type de facturation est « Spécifique »
+    (les montants de ces lignes sont figés).
+    """
+    if tarif_s1 is not None:
+        ligne.tarif_s1 = tarif_s1
+    if tarif_s2 is not None:
+        ligne.tarif_s2 = tarif_s2
+    if ligne.est_specifique:
+        return
+    logements = ligne.logements or 0
+    t12 = None
+    t34 = None
+    if ligne.tarif_s1 is not None:
+        t12 = round(ligne.tarif_s1 * logements / 4, 2)
+    if ligne.tarif_s2 is not None:
+        t34 = round(ligne.tarif_s2 * logements / 4, 2)
+    ligne.t12 = t12
+    ligne.t34 = t34
+    if t12 is not None or t34 is not None:
+        ligne.total_ttc = round((t12 or 0) * 2 + (t34 or 0) * 2, 2)
+        ligne.total_ht = round(ligne.total_ttc / 1.2, 2)
+    else:
+        ligne.total_ttc = None
+        ligne.total_ht = None
+
+
+@app.route('/honoraires', endpoint='honoraires_page')
+def honoraires_page():
+    """Tableau des honoraires (« Honoraire agate ») chargé depuis la base."""
+    _importer_honoraires()
+    lignes = HonoraireLigne.query.filter_by(est_total=False).order_by(
+        HonoraireLigne.numero, HonoraireLigne.id).all()
+    total_t12 = sum(l.t12 or 0 for l in lignes)
+    total_t34 = sum(l.t34 or 0 for l in lignes)
+    total_ttc = sum(l.total_ttc or 0 for l in lignes)
+    total_ht = sum(l.total_ht or 0 for l in lignes)
+    return render_template(
+        'honoraires.html',
+        lignes=lignes,
+        types=TYPE_FACTURATION,
+        total_t12_str=_fmt_euro(total_t12),
+        total_t34_str=_fmt_euro(total_t34),
+        total_ttc_str=_fmt_euro(total_ttc),
+        total_ht_str=_fmt_euro(total_ht),
+    )
+
+
+@app.route('/honoraires/ligne/add', methods=['POST'], endpoint='honoraires_add_ligne')
+def honoraires_add_ligne():
+    """Ajoute une ligne d'honoraires et recalcule ses montants."""
+    def f(name):
+        v = request.form.get(name, '').strip()
+        return v if v else None
+    numero_raw = f('numero')
+    numero = None
+    if numero_raw is not None:
+        try:
+            numero = int(float(numero_raw.replace(',', '.')))
+        except (ValueError, TypeError):
+            numero = None
+    if numero is None:
+        flash('Veuillez indiquer un N° de copro valide.', 'error')
+        return redirect(url_for('honoraires_page'))
+    logements = None
+    if f('logements'):
+        try:
+            logements = int(float(f('logements').replace(',', '.')))
+        except (ValueError, TypeError):
+            logements = None
+
+    def money(name):
+        v = f(name)
+        if v is None:
+            return None
+        try:
+            return float(v.replace('€', '').replace(' ', '').replace(',', '.'))
+        except (ValueError, TypeError):
+            return None
+
+    ligne = HonoraireLigne(
+        numero=numero,
+        mise_copro=parse_date(f('mise_copro')),
+        fin_contrat=parse_date(f('fin_contrat')),
+        type_facturation=f('type_facturation'),
+        logements=logements,
+    )
+    db.session.add(ligne)
+    _recalculer_ligne_honoraire(ligne, tarif_s1=money('tarif_s1'), tarif_s2=money('tarif_s2'))
+    db.session.commit()
+    flash(f"Ligne d'honoraires ajoutée pour la copropriété {numero}.", 'success')
+    return redirect(url_for('honoraires_page'))
+
+
+@app.route('/honoraires/ligne/<int:ligne_id>/delete', methods=['POST'], endpoint='honoraires_delete_ligne')
+def honoraires_delete_ligne(ligne_id):
+    ligne = HonoraireLigne.query.get_or_404(ligne_id)
+    db.session.delete(ligne)
+    db.session.commit()
+    flash("Ligne d'honoraires supprimée.", 'success')
+    return redirect(url_for('honoraires_page'))
+
+
+@app.route('/honoraires/ligne/save', methods=['POST'], endpoint='honoraires_save_ligne')
+def honoraires_save_ligne():
+    """Sauvegarde une ligne complète et recalcule les colonnes calculées."""
+    ligne_id = request.form.get('ligne_id', type=int)
+    if ligne_id is None:
+        flash('Ligne introuvable.', 'error')
+        return redirect(url_for('honoraires_page'))
+    ligne = HonoraireLigne.query.get_or_404(ligne_id)
+
+    def money(name, default=None):
+        v = request.form.get(name, '').strip()
+        if not v:
+            return default
+        try:
+            return float(v.replace('€', '').replace(' ', '').replace(',', '.'))
+        except (ValueError, TypeError):
+            return default
+
+    ligne.mise_copro = parse_date(request.form.get('mise_copro', '').strip()) or ligne.mise_copro
+    ligne.fin_contrat = parse_date(request.form.get('fin_contrat', '').strip()) or ligne.fin_contrat
+    type_facturation = request.form.get('type_facturation', '').strip()
+    if type_facturation:
+        ligne.type_facturation = type_facturation
+    if request.form.get('logements', '').strip():
+        try:
+            ligne.logements = int(float(request.form.get('logements', '').strip().replace(',', '.')))
+        except (ValueError, TypeError):
+            pass
+    _recalculer_ligne_honoraire(ligne, tarif_s1=money('tarif_s1', ligne.tarif_s1),
+                               tarif_s2=money('tarif_s2', ligne.tarif_s2))
+    db.session.commit()
+    flash('Honoraires sauvegardés et recalculés.', 'success')
+    return redirect(url_for('honoraires_page'))
+
+
+@app.route('/honoraires/export', endpoint='honoraires_export')
+def honoraires_export():
+    """Exporte le tableau des honoraires en Excel (.xlsx)."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    lignes = HonoraireLigne.query.filter_by(est_total=False).order_by(
+        HonoraireLigne.numero, HonoraireLigne.id).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Honoraires"
+
+    headers = [
+        'N° de copro', 'Mise en copro', 'Fin de contrat', 'Type de facturation',
+        'Logements', '€ TTC / LP\n1er semestre', '€ TTC / LP\n2e semestre',
+        '€ TTC\n1er et 2e\nTrimestre', '€ TTC\n3e et 4e\nTrimestre',
+        'Total € TTC', 'Total € HT',
+    ]
+    gras_blanc = Font(bold=True, color="FFFFFF")
+    fond = PatternFill(start_color="212529", end_color="212529", fill_type="solid")
+    bordure = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"))
+    centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for c, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=c, value=h)
+        cell.font = gras_blanc
+        cell.fill = fond
+        cell.alignment = centre
+        cell.border = bordure
+
+    ligne_excel = 2
+    for l in lignes:
+        valeurs = [
+            l.numero,
+            l.mise_copro.strftime('%d/%m/%Y') if l.mise_copro else '',
+            l.fin_contrat.strftime('%d/%m/%Y') if l.fin_contrat else '',
+            l.type_facturation or '',
+            l.logements,
+            l.tarif_s1, l.tarif_s2, l.t12, l.t34, l.total_ttc, l.total_ht,
+        ]
+        for c, v in enumerate(valeurs, start=1):
+            cell = ws.cell(row=ligne_excel, column=c, value=v)
+            cell.border = bordure
+        ligne_excel += 1
+
+    for c in range(1, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = 14
+    ws.freeze_panes = "B2"
+
+    nom_fichier = f"honoraires_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    tampon.seek(0)
+    return send_file(
+        tampon,
+        as_attachment=True,
+        download_name=nom_fichier,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+def _honoraire_pour_copropriete(numero):
+    """Récupère la ligne d'honoraires correspondant au N° de copro."""
+    return HonoraireLigne.query.filter(
+        HonoraireLigne.numero == numero, HonoraireLigne.est_total == False
+    ).order_by(HonoraireLigne.id).first()
+
+
 @app.route('/')
 def index():
     stats = get_statistiques()
@@ -772,6 +1056,7 @@ def copropriete(copro_id):
     types_contrats = ["Assurance", "Nettoyage", "Entretien", "Sécurité", "Autre"]
     civilites = Civilite.query.all()
     assurance_contrat = _assurance_pour_copropriete(copropriete.numero)
+    honoraire_ligne = _honoraire_pour_copropriete(copropriete.numero)
 
     return render_template(
         'copropriete.html',
@@ -783,7 +1068,8 @@ def copropriete(copro_id):
         demandes=copropriete.demandes,
         types_contrats=types_contrats,
         civilites=civilites,
-        assurance_contrat=assurance_contrat
+        assurance_contrat=assurance_contrat,
+        honoraire_ligne=honoraire_ligne,
     )
 
 @app.route('/coproprietaire/<int:coproprietaire_id>/delete', methods=['POST'])
@@ -940,7 +1226,7 @@ def new_copropriete():
         new_copro = Copropriete(
             numero=numero,
             nom=request.form.get('nom', f"Copropriété {numero}"),
-            date_mise_copropriete=parse_date(request.form.get('date_mise_copropriete')),
+            date_mise_copro=parse_date(request.form.get('date_mise_copropriete')),
             programme_neolia=request.form.get('programme_neolia'),
             adresse=request.form.get('adresse'),
             ville=request.form.get('ville'),
@@ -1456,7 +1742,7 @@ if __name__ == '__main__':
                 copro = Copropriete(
                     numero=data["numero"],
                     nom=f"Copropriété {data['numero']}",
-                    date_mise_copropriete=parse_date(data["date_mise_copropriete"]),
+                    date_mise_copro=parse_date(data["date_mise_copropriete"]),
                     programme_neolia=data["programme_neolia"],
                     adresse=data["adresse"],
                     ville=data["ville"],
@@ -1471,5 +1757,8 @@ if __name__ == '__main__':
 
         # Importer les copropriétaires depuis le fichier Excel (une fois)
         _importer_coproprietaires_excel()
+
+        # Importer les honoraires depuis les données « Honoraire agate » (une fois)
+        _importer_honoraires()
 
     app.run(debug=True, host='0.0.0.0', port=5000)
