@@ -384,6 +384,56 @@
 </div>
 {% endif %}
 
+<!-- Honoraires (issus du tableau « Honoraire agate », répliqués par N° de copro) -->
+{% if honoraire_ligne %}
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h3 class="mb-0"><i class="fas fa-euro-sign"></i> Honoraires
+            {% if honoraire_ligne.type_facturation %}<span class="badge bg-light text-dark ms-2">{{ honoraire_ligne.type_facturation }}</span>{% endif %}
+            {% if honoraire_ligne.est_specifique %}<span class="badge bg-secondary ms-2">Montants spécifiques (non recalculés)</span>{% endif %}
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr class="text-center">
+                        <th>Mise en copro</th>
+                        <th>Fin de contrat</th>
+                        <th>Type de facturation</th>
+                        <th>Logements</th>
+                        <th>€ TTC / LP 1er semestre</th>
+                        <th>€ TTC / LP 2e semestre</th>
+                        <th>€ TTC 1er et 2e Trimestre</th>
+                        <th>€ TTC 3e et 4e Trimestre</th>
+                        <th>Total € TTC</th>
+                        <th>Total € HT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="text-center">
+                        <td>{{ honoraire_ligne.mise_copro.strftime('%d/%m/%Y') if honoraire_ligne.mise_copro else '—' }}</td>
+                        <td>{{ honoraire_ligne.fin_contrat.strftime('%d/%m/%Y') if honoraire_ligne.fin_contrat else '—' }}</td>
+                        <td>{{ honoraire_ligne.type_facturation or '—' }}</td>
+                        <td>{{ honoraire_ligne.logements if honoraire_ligne.logements is not none else '—' }}</td>
+                        <td>{{ honoraire_ligne.tarif_s1|euro if honoraire_ligne.tarif_s1 is not none else '—' }}</td>
+                        <td>{{ honoraire_ligne.tarif_s2|euro if honoraire_ligne.tarif_s2 is not none else '—' }}</td>
+                        <td>{{ honoraire_ligne.t12|euro if honoraire_ligne.t12 is not none else '—' }}</td>
+                        <td>{{ honoraire_ligne.t34|euro if honoraire_ligne.t34 is not none else '—' }}</td>
+                        <td class="fw-bold">{{ honoraire_ligne.total_ttc|euro if honoraire_ligne.total_ttc is not none else '—' }}</td>
+                        <td class="fw-bold">{{ honoraire_ligne.total_ht|euro if honoraire_ligne.total_ht is not none else '—' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted mb-0">
+            <a href="{{ url_for('honoraires_page') }}" class="text-decoration-none">
+                <i class="fas fa-arrow-right"></i> Voir le tableau complet des honoraires
+            </a>
+        </p>
+    </div>
+</div>
+{% endif %}
 <!-- Contrat d'assurance (issu du tableau Assurance) -->
 {% if assurance_contrat %}
 <div class="card mb-4">
