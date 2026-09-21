@@ -1288,10 +1288,12 @@ def visites_export():
 # ========== ONGLET TRAVAUX (tableau « ADF Travaux AGATE ») ==========
 
 def _date_fr_vers_iso(valeur):
-    """Convertit JJ/MM/AAAA (ou JJ/MM/AA) en date ; renvoie None sinon."""
+    """Convertit JJ/MM/AAAA (ou JJ/MM/AA) en date ; renvoie None sinon.
+    Accepte aussi les séparateurs « - » et « . » à la place des « / »."""
+    texte = (valeur or '').strip().replace('-', '/').replace('.', '/')
     for fmt in ('%d/%m/%Y', '%d/%m/%y'):
         try:
-            return datetime.strptime((valeur or '').strip(), fmt).date()
+            return datetime.strptime(texte, fmt).date()
         except ValueError:
             continue
     return None
@@ -1391,8 +1393,11 @@ def travaux_page():
     def _appels_a_suivre(ligne):
         if ligne.fait:
             return True
-        return any(limite <= d <= aujourdhui or d > aujourdhui
-                  for d in (_date_fr_vers_iso(a.date_appel) for a in ligne.appels))
+        for a in ligne.appels:
+            d = _date_fr_vers_iso(a.date_appel)
+            if d is not None and (limite <= d <= aujourdhui or d > aujourdhui):
+                return True
+        return False
     suivi_appels = [l for l in ctx['lignes'] if _appels_a_suivre(l)]
     return render_template('travaux.html', **ctx,
                            suivi_devis=suivi_devis, suivi_appels=suivi_appels)
