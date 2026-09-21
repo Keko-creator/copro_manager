@@ -96,7 +96,7 @@
                     <tr class="honoraire-row {% if ligne.est_specifique %}table-secondary{% endif %}">
                         <td class="fw-bold">{{ ligne.numero }}</td>
                         <td>{{ ligne.mise_copro.strftime('%d/%m/%Y') if ligne.mise_copro else '—' }}</td>
-                        <td>{{ ligne.fin_contrat.strftime('%d/%m/%Y') if ligne.fin_contrat else '—' }}</td>
+                        <td>{{ ligne.fin_contrat|fin_contrat_courte if ligne.fin_contrat else '—' }}</td>
                         <td>{{ ligne.type_facturation or '—' }}</td>
                         <td>{{ ligne.logements if ligne.logements is not none else '—' }}</td>
                         <td class="text-end">{{ ligne.tarif_s1|euro if ligne.tarif_s1 is not none else '—' }}</td>
@@ -116,6 +116,8 @@
                                         data-logements="{{ ligne.logements if ligne.logements is not none else '' }}"
                                         data-tarif-s1="{{ ligne.tarif_s1 if ligne.tarif_s1 is not none else '' }}"
                                         data-tarif-s2="{{ ligne.tarif_s2 if ligne.tarif_s2 is not none else '' }}"
+                                        data-t12="{{ ligne.t12 if ligne.t12 is not none else '' }}"
+                                        data-t34="{{ ligne.t34 if ligne.t34 is not none else '' }}"
                                         data-specifique="{{ 'true' if ligne.est_specifique else 'false' }}"
                                         title="Modifier">
                                     <i class="fas fa-edit"></i>
@@ -148,8 +150,9 @@
         <p class="text-muted small mt-2 mb-0">
             <i class="fas fa-calculator"></i>
             Les colonnes trimestrielles et les totaux sont recalculés automatiquement à partir de
-            « € TTC / LP 1er semestre », « € TTC / LP 2e semestre » et « Logements »,
-            sauf pour les lignes de facturation <b>Spécifique</b> (montants figés).
+            « € TTC / LP 1er semestre », « € TTC / LP 2e semestre » et « Logements ».
+            Pour les lignes <b>Spécifique</b>, les montants trimestriels sont saisis à la main
+            et seuls les totaux TTC et HT sont calculés.
         </p>
         {% else %}
         <div class="alert alert-info">Aucune donnée d'honoraires.</div>
@@ -201,8 +204,16 @@
                             <label class="form-label">€ TTC / LP 2e semestre</label>
                             <input type="text" class="form-control" name="tarif_s2" placeholder="Ex: 168 ou 168,00 €">
                         </div>
+                        <div class="col-md-6 mb-3 add-t12-wrapper" style="display:none;">
+                            <label class="form-label">€ TTC 1er et 2e Trimestre</label>
+                            <input type="text" class="form-control" name="t12" placeholder="Ex: 150">
+                        </div>
+                        <div class="col-md-6 mb-3 add-t34-wrapper" style="display:none;">
+                            <label class="form-label">€ TTC 3e et 4e Trimestre</label>
+                            <input type="text" class="form-control" name="t34" placeholder="Ex: 150">
+                        </div>
                     </div>
-                    <p class="text-muted small mb-0">Les colonnes trimestrielles et les totaux seront calculés automatiquement (sauf type « Spécifique »).</p>
+                    <p class="text-muted small mb-0">Les colonnes trimestrielles et les totaux seront calculés automatiquement (sauf type « Spécifique » : montants trimestriels saisis à la main).</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
@@ -258,6 +269,14 @@
                             <label class="form-label">€ TTC / LP 2e semestre</label>
                             <input type="text" class="form-control" name="tarif_s2" id="editTarifS2" placeholder="Ex: 168">
                         </div>
+                        <div class="col-md-6 mb-3" id="editT12Wrapper" style="display:none;">
+                            <label class="form-label">€ TTC 1er et 2e Trimestre</label>
+                            <input type="text" class="form-control" name="t12" id="editT12" placeholder="Ex: 150">
+                        </div>
+                        <div class="col-md-6 mb-3" id="editT34Wrapper" style="display:none;">
+                            <label class="form-label">€ TTC 3e et 4e Trimestre</label>
+                            <input type="text" class="form-control" name="t34" id="editT34" placeholder="Ex: 150">
+                        </div>
                     </div>
                     <div id="editApercu" class="table-responsive">
                         <table class="table table-sm table-bordered mb-0">
@@ -280,7 +299,7 @@
                         </table>
                     </div>
                     <p class="text-muted small mb-0" id="editSpecifiqueNote" style="display:none;">
-                        <i class="fas fa-lock"></i> Type « Spécifique » : les montants ne sont pas recalculés automatiquement.
+                        <i class="fas fa-lock"></i> Type « Spécifique » : saisissez directement les montants trimestriels ; seuls les totaux sont calculés.
                     </p>
                 </div>
                 <div class="modal-footer">
@@ -349,6 +368,8 @@
             document.getElementById('editLogements').value = this.getAttribute('data-logements');
             document.getElementById('editTarifS1').value = this.getAttribute('data-tarif-s1');
             document.getElementById('editTarifS2').value = this.getAttribute('data-tarif-s2');
+            document.getElementById('editT12').value = this.getAttribute('data-t12');
+            document.getElementById('editT34').value = this.getAttribute('data-t34');
             const specifique = this.getAttribute('data-specifique') === 'true';
             document.getElementById('editSpecifiqueNote').style.display = specifique ? '' : 'none';
             recalculerApercu();
@@ -357,22 +378,29 @@
         });
     });
 
-    function recalculerApercu() {
+    function basculerChampsSpecifiques() {
         const type = document.getElementById('editType').value;
         const specifique = type.trim().toLowerCase() === 'spécifique';
+        document.getElementById('editT12Wrapper').style.display = specifique ? '' : 'none';
+        document.getElementById('editT34Wrapper').style.display = specifique ? '' : 'none';
         document.getElementById('editSpecifiqueNote').style.display = specifique ? '' : 'none';
+    }
+
+    function recalculerApercu() {
+        basculerChampsSpecifiques();
+        const type = document.getElementById('editType').value;
+        const specifique = type.trim().toLowerCase() === 'spécifique';
+        let t12 = null, t34 = null;
         if (specifique) {
-            document.getElementById('apercuT12').textContent = 'figé';
-            document.getElementById('apercuT34').textContent = 'figé';
-            document.getElementById('apercuTtc').textContent = 'figé';
-            document.getElementById('apercuHt').textContent = 'figé';
-            return;
+            t12 = parseNum(document.getElementById('editT12').value);
+            t34 = parseNum(document.getElementById('editT34').value);
+        } else {
+            const logements = parseNum(document.getElementById('editLogements').value) || 0;
+            const s1 = parseNum(document.getElementById('editTarifS1').value);
+            const s2 = parseNum(document.getElementById('editTarifS2').value);
+            t12 = (s1 !== null) ? s1 * logements / 4 : null;
+            t34 = (s2 !== null) ? s2 * logements / 4 : null;
         }
-        const logements = parseNum(document.getElementById('editLogements').value) || 0;
-        const s1 = parseNum(document.getElementById('editTarifS1').value);
-        const s2 = parseNum(document.getElementById('editTarifS2').value);
-        const t12 = (s1 !== null) ? s1 * logements / 4 : null;
-        const t34 = (s2 !== null) ? s2 * logements / 4 : null;
         let ttc = null;
         if (t12 !== null || t34 !== null) ttc = (t12 || 0) * 2 + (t34 || 0) * 2;
         const ht = (ttc !== null) ? ttc / 1.2 : null;
@@ -382,7 +410,17 @@
         document.getElementById('apercuHt').textContent = fmtEuro(ht);
     }
 
-    ['editType', 'editLogements', 'editTarifS1', 'editTarifS2'].forEach(function(id) {
+    const addTypeSelect = document.querySelector('#addLigneHonoraireModal select[name="type_facturation"]');
+    if (addTypeSelect) {
+        addTypeSelect.addEventListener('change', function() {
+            const specifique = this.value.trim().toLowerCase() === 'spécifique';
+            document.querySelectorAll('.add-t12-wrapper, .add-t34-wrapper').forEach(function(el) {
+                el.style.display = specifique ? '' : 'none';
+            });
+        });
+    }
+
+    ['editType', 'editLogements', 'editTarifS1', 'editTarifS2', 'editT12', 'editT34'].forEach(function(id) {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', recalculerApercu);
         if (el) el.addEventListener('change', recalculerApercu);
