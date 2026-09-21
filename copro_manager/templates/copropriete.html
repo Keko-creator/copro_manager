@@ -390,7 +390,7 @@
     <div class="card-header bg-warning text-dark">
         <h3 class="mb-0"><i class="fas fa-euro-sign"></i> Honoraires
             {% if honoraire_ligne.type_facturation %}<span class="badge bg-light text-dark ms-2">{{ honoraire_ligne.type_facturation }}</span>{% endif %}
-            {% if honoraire_ligne.est_specifique %}<span class="badge bg-secondary ms-2">Montants spécifiques (non recalculés)</span>{% endif %}
+            {% if honoraire_ligne.est_specifique %}<span class="badge bg-secondary ms-2">Montants spécifiques</span>{% endif %}
         </h3>
     </div>
     <div class="card-body">
@@ -413,7 +413,7 @@
                 <tbody>
                     <tr class="text-center">
                         <td>{{ honoraire_ligne.mise_copro.strftime('%d/%m/%Y') if honoraire_ligne.mise_copro else '—' }}</td>
-                        <td>{{ honoraire_ligne.fin_contrat.strftime('%d/%m/%Y') if honoraire_ligne.fin_contrat else '—' }}</td>
+                        <td>{{ honoraire_ligne.fin_contrat|fin_contrat_courte if honoraire_ligne.fin_contrat else '—' }}</td>
                         <td>{{ honoraire_ligne.type_facturation or '—' }}</td>
                         <td>{{ honoraire_ligne.logements if honoraire_ligne.logements is not none else '—' }}</td>
                         <td>{{ honoraire_ligne.tarif_s1|euro if honoraire_ligne.tarif_s1 is not none else '—' }}</td>

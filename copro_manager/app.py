@@ -689,6 +689,18 @@ def _euro_filter(valeur):
     return _fmt_euro(valeur)
 
 
+@app.template_filter('fin_contrat_courte')
+def _fin_contrat_courte_filter(valeur):
+    """Affiche une date de fin de contrat au format court « 30 juin » / « 31 déc. »."""
+    MOIS_COURTS = {
+        1: 'janv.', 2: 'févr.', 3: 'mars', 4: 'avr.', 5: 'mai', 6: 'juin',
+        7: 'juil.', 8: 'août', 9: 'sept.', 10: 'oct.', 11: 'nov.', 12: 'déc.',
+    }
+    if not valeur:
+        return ''
+    return f"{valeur.day} {MOIS_COURTS[valeur.month]}"
+
+
 def _importer_honoraires():
     """Importe les lignes du tableau « Honoraire agate » (une seule fois,
     si la table est vide). Une fois fait, le fichier Excel peut être supprimé."""
@@ -713,29 +725,32 @@ def _importer_honoraires():
     db.session.commit()
 
 
-def _recalculer_ligne_honoraire(ligne, tarif_s1=None, tarif_s2=None):
+def _recalculer_ligne_honoraire(ligne, tarif_s1=None, tarif_s2=None, t12=None, t34=None):
     """Recalcule les colonnes t12 / t34 / total_ttc / total_ht d'une ligne.
 
-    Ne recalcule PAS si le type de facturation est « Spécifique »
-    (les montants de ces lignes sont figés).
+    Lignes Classique / Forfait / ASL : t12 et t34 sont calculés à partir
+    des tarifs semestriels et du nombre de logements.
+
+    Lignes « Spécifique » : t12 et t34 sont saisis à la main ; seuls les
+    totaux TTC et HT sont recalculés à partir de ces montants.
     """
     if tarif_s1 is not None:
         ligne.tarif_s1 = tarif_s1
     if tarif_s2 is not None:
         ligne.tarif_s2 = tarif_s2
     if ligne.est_specifique:
-        return
-    logements = ligne.logements or 0
-    t12 = None
-    t34 = None
-    if ligne.tarif_s1 is not None:
-        t12 = round(ligne.tarif_s1 * logements / 4, 2)
-    if ligne.tarif_s2 is not None:
-        t34 = round(ligne.tarif_s2 * logements / 4, 2)
-    ligne.t12 = t12
-    ligne.t34 = t34
-    if t12 is not None or t34 is not None:
-        ligne.total_ttc = round((t12 or 0) * 2 + (t34 or 0) * 2, 2)
+        if t12 is not None:
+            ligne.t12 = t12
+        if t34 is not None:
+            ligne.t34 = t34
+    else:
+        logements = ligne.logements or 0
+        if ligne.tarif_s1 is not None:
+            ligne.t12 = round(ligne.tarif_s1 * logements / 4, 2)
+        if ligne.tarif_s2 is not None:
+            ligne.t34 = round(ligne.tarif_s2 * logements / 4, 2)
+    if ligne.t12 is not None or ligne.t34 is not None:
+        ligne.total_ttc = round((ligne.t12 or 0) * 2 + (ligne.t34 or 0) * 2, 2)
         ligne.total_ht = round(ligne.total_ttc / 1.2, 2)
     else:
         ligne.total_ttc = None
@@ -803,7 +818,13 @@ def honoraires_add_ligne():
         logements=logements,
     )
     db.session.add(ligne)
-    _recalculer_ligne_honoraire(ligne, tarif_s1=money('tarif_s1'), tarif_s2=money('tarif_s2'))
+    _recalculer_ligne_honoraire(
+        ligne,
+        tarif_s1=money('tarif_s1'),
+        tarif_s2=money('tarif_s2'),
+        t12=money('t12'),
+        t34=money('t34'),
+    )
     db.session.commit()
     flash(f"Ligne d'honoraires ajoutée pour la copropriété {numero}.", 'success')
     return redirect(url_for('honoraires_page'))
@@ -846,8 +867,13 @@ def honoraires_save_ligne():
             ligne.logements = int(float(request.form.get('logements', '').strip().replace(',', '.')))
         except (ValueError, TypeError):
             pass
-    _recalculer_ligne_honoraire(ligne, tarif_s1=money('tarif_s1', ligne.tarif_s1),
-                               tarif_s2=money('tarif_s2', ligne.tarif_s2))
+    _recalculer_ligne_honoraire(
+        ligne,
+        tarif_s1=money('tarif_s1', ligne.tarif_s1),
+        tarif_s2=money('tarif_s2', ligne.tarif_s2),
+        t12=money('t12', ligne.t12),
+        t34=money('t34', ligne.t34),
+    )
     db.session.commit()
     flash('Honoraires sauvegardés et recalculés.', 'success')
     return redirect(url_for('honoraires_page'))
