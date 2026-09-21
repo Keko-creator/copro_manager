@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Visites d'immeuble - Copro Manager{% endblock %}
+{% block styles %}
+<style>
+    .visite-scroll-wrapper {
+        max-height: 70vh;
+        overflow: auto;
+        border: 1px solid #dee2e6;
+    }
+    .visite-scroll-wrapper thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #212529;
+    }
+    .visite-scroll-wrapper td:first-child,
+    .visite-scroll-wrapper th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        background-color: #f8f9fa;
+    }
+    .visite-scroll-wrapper thead th:first-child {
+        z-index: 15;
+        background-color: #495057;
+    }
+    .visite-scroll-top {
+        overflow-x: auto;
+        overflow-y: hidden;
+        border: 1px solid #dee2e6;
+        border-bottom: none;
+    }
+    .visite-scroll-top-inner {
+        height: 1px;
+    }
+    .visite-scroll-wrapper td.visite-cell {
+        min-width: 110px;
+        cursor: pointer;
+    }
+    .visite-scroll-wrapper td.visite-cell:hover {
+        background-color: #e9ecef;
+    }
+    .visite-scroll-wrapper td.visite-cell input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="display-4"><i class="fas fa-clipboard-check"></i> Visites d'immeuble</h1>
+            <p class="lead">Suivi des visites d'immeuble des copropriétés ({{ rows|length }} copropriétés)</p>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addVisiteLigneModal">
+                <i class="fas fa-plus"></i> Ajouter une copropriété
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addVisiteColonneModal">
+                <i class="fas fa-plus"></i> Ajouter une année
+            </button>
+            <a href="{{ url_for('visites_export') }}" class="btn btn-outline-success">
+                <i class="fas fa-file-excel"></i> Exporter Excel
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" id="visiteSearch" class="form-control" placeholder="Rechercher un N° de copro ou une date de visite...">
+        </div>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if colonnes %}
+        <div class="visite-scroll-top">
+            <div class="visite-scroll-top-inner"></div>
+        </div>
+        <div class="table-responsive visite-scroll-wrapper">
+            <table class="table table-sm table-bordered table-hover align-middle" id="visiteTable">
+                <thead class="table-dark">
+                    <tr class="text-center">
+                        <th>N° de copro</th>
+                        {% for col in colonnes %}
+                        <th>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>{{ col.annee }}</span>
+                                <form method="POST" action="{{ url_for('visites_delete_colonne', colonne_id=col.id) }}"
+                                      class="d-inline" onsubmit="return confirm('Supprimer la colonne {{ col.annee }} et toutes ses dates ?');">
+                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Supprimer la colonne">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </th>
+                        {% endfor %}
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="visite-row">
+                        <td class="fw-bold">{{ row.numero }}</td>
+                        {% for cell in row.valeurs %}
+                        <td class="visite-cell text-center"
+                            data-ligne-id="{{ row.id }}"
+                            data-colonne-id="{{ colonnes[loop.index0].id }}"
+                            title="Cliquez pour saisir/modifier la date de visite">{{ cell or '' }}</td>
+                        {% endfor %}
+                        <td>
+                            <form method="POST" action="{{ url_for('visites_delete_ligne', ligne_id=row.id) }}"
+                                  class="d-inline" onsubmit="return confirm('Supprimer la ligne N° {{ row.numero }} ?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer la ligne">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mt-2 mb-0">
+            <i class="fas fa-edit"></i> Cliquez sur une cellule pour saisir ou modifier la date de visite
+            (format JJ/MM/AAAA, ou un texte libre comme « A voir »). Laissez vide pour indiquer aucune visite.
+        </p>
+        {% else %}
+        <div class="alert alert-info">Aucune donnée de visites.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal ajout d'une copropriété -->
+<div class="modal fade" id="addVisiteLigneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('visites_add_ligne') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Ajouter une copropriété</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">N° de copro <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="numero" required placeholder="Ex: 74">
+                    </div>
+                    <p class="text-muted small mb-0">Une nouvelle ligne vide sera ajoutée ; saisissez ensuite les dates de visite en cliquant sur les cellules.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ajout d'une année -->
+<div class="modal fade" id="addVisiteColonneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('visites_add_colonne') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Ajouter une année</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Année <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="annee" required placeholder="Ex: 2027">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    const scrollTop = document.querySelector('.visite-scroll-top');
+    const scrollTopInner = document.querySelector('.visite-scroll-top-inner');
+    const scrollWrapper = document.querySelector('.visite-scroll-wrapper');
+    const table = document.getElementById('visiteTable');
+    if (scrollTop && scrollWrapper && table) {
+        scrollTopInner.style.width = table.scrollWidth + 'px';
+        scrollTop.addEventListener('scroll', function() {
+            scrollWrapper.scrollLeft = scrollTop.scrollLeft;
+        });
+        scrollWrapper.addEventListener('scroll', function() {
+            scrollTop.scrollLeft = scrollWrapper.scrollLeft;
+        });
+        window.addEventListener('resize', function() {
+            scrollTopInner.style.width = table.scrollWidth + 'px';
+        });
+    }
+
+    const search = document.getElementById('visiteSearch');
+    const rows = document.querySelectorAll('#visiteTable tbody tr.visite-row');
+    if (search) {
+        search.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            rows.forEach(function(tr) {
+                const text = tr.textContent.toLowerCase();
+                tr.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+            });
+        });
+    }
+
+    // Édition inline d'une cellule : clic -> champ de saisie -> sauvegarde
+    document.querySelectorAll('td.visite-cell').forEach(function(td) {
+        td.addEventListener('click', function() {
+            if (td.querySelector('input')) return;
+            const valeurActuelle = td.textContent.trim();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = valeurActuelle;
+            input.placeholder = 'JJ/MM/AAAA';
+            td.textContent = '';
+            td.appendChild(input);
+            input.focus();
+            input.select();
+
+            function sauvegarder() {
+                const fd = new FormData();
+                fd.append('ligne_id', td.getAttribute('data-ligne-id'));
+                fd.append('colonne_id', td.getAttribute('data-colonne-id'));
+                fd.append('valeur', input.value.trim());
+                fd.append('from', 'visites');
+                fetch("{{ url_for('visites_save_cellule') }}", { method: 'POST', body: fd })
+                    .then(function() { window.location.reload(); });
+            }
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); sauvegarder(); }
+                if (e.key === 'Escape') { window.location.reload(); }
+            });
+            input.addEventListener('blur', sauvegarder);
+        });
+    });
+})();
+</script>
+{% endblock %}

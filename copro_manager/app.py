@@ -7,6 +7,7 @@ import json
 from sqlalchemy.orm import joinedload
 from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute COPROPRIETES_DATA
 from honoraires_data import HONORAIRE_DATA
+from visites_data import ANNEES as VISITES_ANNEES, LIGNES as VISITES_LIGNES
 
 # ========== CONFIGURATION ==========
 app = Flask(__name__)
@@ -262,6 +263,33 @@ class HonoraireLigne(db.Model):
     @property
     def est_specifique(self):
         return (self.type_facturation or '').strip().lower() == 'spécifique'
+
+# ========== MODÈLES POUR LE TABLEAU VISITES D'IMMEUBLE (dynamique) ==========
+# Approche identique au tableau Assurance : colonnes = années de visite,
+# lignes = copropriétés, cellules = date de visite (ou texte libre).
+# L'ajout/suppression libre de colonnes (années) et de lignes (copros) est
+# possible, et chaque cellule est éditable depuis le tableau ou la fiche copro.
+
+class VisiteColonne(db.Model):
+    __tablename__ = 'visite_colonnes'
+    id = db.Column(db.Integer, primary_key=True)
+    annee = db.Column(db.String(10), nullable=False)  # en-tête: année de visite
+    ordre = db.Column(db.Integer, nullable=False, default=0)
+    cellules = db.relationship('VisiteCellule', backref='colonne', lazy=True, cascade="all, delete-orphan")
+
+class VisiteLigne(db.Model):
+    __tablename__ = 'visite_lignes'
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.Integer)  # N° de copro
+    ordre = db.Column(db.Integer, nullable=False, default=0)
+    cellules = db.relationship('VisiteCellule', backref='ligne', lazy=True, cascade="all, delete-orphan")
+
+class VisiteCellule(db.Model):
+    __tablename__ = 'visite_cellules'
+    id = db.Column(db.Integer, primary_key=True)
+    ligne_id = db.Column(db.Integer, db.ForeignKey('visite_lignes.id'), nullable=False)
+    colonne_id = db.Column(db.Integer, db.ForeignKey('visite_colonnes.id'), nullable=False)
+    valeur = db.Column(db.String(100))  # date de visite (JJ/MM/AAAA) ou texte libre
 
 # ========== UTILITY FUNCTIONS ==========
 def parse_date(date_str):
@@ -950,6 +978,223 @@ def _honoraire_pour_copropriete(numero):
     ).order_by(HonoraireLigne.id).first()
 
 
+# ========== ONGLET VISITES D'IMMEUBLE (tableau « Visites d'immeuble agate ») ==========
+
+def _normaliser_visite(valeur):
+    """Convertit une date ISO (YYYY-MM-DD) au format JJ/MM/AAAA ; laisse le
+    texte libre (ex. « A voir ») inchangé."""
+    valeur = (valeur or '').strip()
+    try:
+        return datetime.strptime(valeur, '%Y-%m-%d').strftime('%d/%m/%Y')
+    except ValueError:
+        return valeur
+
+
+def _importer_visites():
+    """Importe les lignes du tableau « Visites d'immeuble agate » (une seule
+    fois, si les tables sont vides). Une fois fait, le fichier Excel peut
+    être supprimé."""
+    if VisiteColonne.query.count() > 0 or VisiteLigne.query.count() > 0:
+        return
+    colonnes = {}
+    for i, annee in enumerate(VISITES_ANNEES):
+        col = VisiteColonne(annee=annee, ordre=i)
+        db.session.add(col)
+        colonnes[annee] = col
+    db.session.flush()
+    for i, l in enumerate(VISITES_LIGNES):
+        ligne = VisiteLigne(numero=l['numero'], ordre=i)
+        db.session.add(ligne)
+        db.session.flush()
+        for annee, valeur in l['visites'].items():
+            col = colonnes.get(annee)
+            if col is None:
+                continue
+            db.session.add(VisiteCellule(
+                ligne_id=ligne.id, colonne_id=col.id,
+                valeur=_normaliser_visite(valeur)))
+    db.session.commit()
+
+
+def _visites_context():
+    """Construit le contexte de la page Visites depuis la base."""
+    colonnes = VisiteColonne.query.order_by(VisiteColonne.ordre).all()
+    lignes = VisiteLigne.query.order_by(VisiteLigne.numero, VisiteLigne.id).all()
+    rows = []
+    for ligne in lignes:
+        cellules = {c.colonne_id: c.valeur for c in ligne.cellules}
+        rows.append({
+            'id': ligne.id,
+            'numero': ligne.numero,
+            'valeurs': [cellules.get(col.id, '') for col in colonnes],
+        })
+    return {'colonnes': colonnes, 'rows': rows}
+
+
+def _visites_pour_copropriete(numero):
+    """Renvoie les visites d'une copropriété : liste de dicts {colonne_id,
+    annee, valeur}. Ne renvoie QUE les cellules non vides."""
+    colonnes = VisiteColonne.query.order_by(VisiteColonne.ordre).all()
+    ligne = VisiteLigne.query.filter(VisiteLigne.numero == numero).order_by(
+        VisiteLigne.id).first()
+    if not ligne:
+        return None
+    cellules = {c.colonne_id: c.valeur for c in ligne.cellules}
+    visites = []
+    for col in colonnes:
+        valeur = (cellules.get(col.id) or '').strip()
+        if valeur:
+            visites.append({'colonne_id': col.id, 'annee': col.annee, 'valeur': valeur})
+    return {'ligne_id': ligne.id, 'visites': visites}
+
+
+@app.route('/visites', endpoint='visites_page')
+def visites_page():
+    """Tableau des visites d'immeuble chargé depuis la base."""
+    _importer_visites()
+    return render_template('visites.html', **_visites_context())
+
+
+@app.route('/visites/ligne/add', methods=['POST'], endpoint='visites_add_ligne')
+def visites_add_ligne():
+    """Ajoute une ligne (copropriété) au tableau des visites."""
+    numero_raw = request.form.get('numero', '').strip()
+    try:
+        numero = int(float(numero_raw.replace(',', '.')))
+    except (ValueError, TypeError):
+        flash('Veuillez indiquer un N° de copro valide.', 'error')
+        return redirect(url_for('visites_page'))
+    max_ordre = db.session.query(db.func.max(VisiteLigne.ordre)).scalar() or 0
+    ligne = VisiteLigne(numero=numero, ordre=max_ordre + 1)
+    db.session.add(ligne)
+    db.session.commit()
+    flash(f'Ligne ajoutée pour la copropriété {numero}.', 'success')
+    return redirect(url_for('visites_page'))
+
+
+@app.route('/visites/ligne/<int:ligne_id>/delete', methods=['POST'], endpoint='visites_delete_ligne')
+def visites_delete_ligne(ligne_id):
+    ligne = VisiteLigne.query.get_or_404(ligne_id)
+    db.session.delete(ligne)
+    db.session.commit()
+    flash('Ligne supprimée.', 'success')
+    return redirect(url_for('visites_page'))
+
+
+@app.route('/visites/colonne/add', methods=['POST'], endpoint='visites_add_colonne')
+def visites_add_colonne():
+    """Ajoute une colonne (année de visite)."""
+    annee = request.form.get('annee', '').strip()
+    if not annee:
+        flash("Veuillez indiquer l'année de la nouvelle colonne.", 'error')
+        return redirect(url_for('visites_page'))
+    if VisiteColonne.query.filter_by(annee=annee).first():
+        flash(f'La colonne {annee} existe déjà.', 'error')
+        return redirect(url_for('visites_page'))
+    max_ordre = db.session.query(db.func.max(VisiteColonne.ordre)).scalar() or 0
+    col = VisiteColonne(annee=annee, ordre=max_ordre + 1)
+    db.session.add(col)
+    db.session.commit()
+    flash(f'Colonne {annee} ajoutée.', 'success')
+    return redirect(url_for('visites_page'))
+
+
+@app.route('/visites/colonne/<int:colonne_id>/delete', methods=['POST'], endpoint='visites_delete_colonne')
+def visites_delete_colonne(colonne_id):
+    col = VisiteColonne.query.get_or_404(colonne_id)
+    db.session.delete(col)
+    db.session.commit()
+    flash('Colonne supprimée.', 'success')
+    return redirect(url_for('visites_page'))
+
+
+def _visite_cellule_get(ligne_id, colonne_id):
+    return VisiteCellule.query.filter_by(
+        ligne_id=ligne_id, colonne_id=colonne_id).first()
+
+
+@app.route('/visites/cellule/save', methods=['POST'], endpoint='visites_save_cellule')
+def visites_save_cellule():
+    """Sauvegarde une cellule (date de visite ou texte libre).
+    Valeur vide = suppression de la cellule (aucune visite)."""
+    ligne_id = request.form.get('ligne_id', type=int)
+    colonne_id = request.form.get('colonne_id', type=int)
+    valeur = (request.form.get('valeur') or '').strip()
+    if ligne_id is None or colonne_id is None:
+        flash('Données invalides pour la cellule.', 'error')
+        return redirect(request.referrer or url_for('visites_page'))
+    cellule = _visite_cellule_get(ligne_id, colonne_id)
+    if valeur:
+        if cellule:
+            cellule.valeur = valeur
+        else:
+            db.session.add(VisiteCellule(
+                ligne_id=ligne_id, colonne_id=colonne_id, valeur=valeur))
+    elif cellule:
+        db.session.delete(cellule)
+    db.session.commit()
+    flash('Visite sauvegardée.', 'success')
+    dest = request.form.get('from') or 'visites'
+    if dest == 'copropriete':
+        copro_id = request.form.get('copro_id', type=int)
+        if copro_id:
+            return redirect(url_for('copropriete', copro_id=copro_id))
+    return redirect(url_for('visites_page'))
+
+
+@app.route('/visites/export', endpoint='visites_export')
+def visites_export():
+    """Exporte le tableau des visites en Excel (.xlsx)."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    colonnes = VisiteColonne.query.order_by(VisiteColonne.ordre).all()
+    lignes = VisiteLigne.query.order_by(VisiteLigne.numero, VisiteLigne.id).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Visite d'immeuble"
+
+    gras_blanc = Font(bold=True, color="FFFFFF")
+    fond = PatternFill(start_color="212529", end_color="212529", fill_type="solid")
+    bordure = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"))
+    centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    headers = ['N° de copro'] + [c.annee for c in colonnes]
+    for c, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=c, value=h)
+        cell.font = gras_blanc
+        cell.fill = fond
+        cell.alignment = centre
+        cell.border = bordure
+
+    ligne_excel = 2
+    for ligne in lignes:
+        cellules = {cl.colonne_id: cl.valeur for cl in ligne.cellules}
+        ws.cell(row=ligne_excel, column=1, value=ligne.numero).border = bordure
+        for c, col in enumerate(colonnes, start=2):
+            ws.cell(row=ligne_excel, column=c, value=cellules.get(col.id, '')).border = bordure
+        ligne_excel += 1
+
+    ws.column_dimensions['A'].width = 14
+    for c in range(2, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = 14
+    ws.freeze_panes = "B2"
+
+    nom_fichier = f"visites_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    tampon.seek(0)
+    return send_file(
+        tampon,
+        as_attachment=True,
+        download_name=nom_fichier,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
 @app.route('/')
 def index():
     stats = get_statistiques()
@@ -1083,6 +1328,7 @@ def copropriete(copro_id):
     civilites = Civilite.query.all()
     assurance_contrat = _assurance_pour_copropriete(copropriete.numero)
     honoraire_ligne = _honoraire_pour_copropriete(copropriete.numero)
+    visites = _visites_pour_copropriete(copropriete.numero)
 
     return render_template(
         'copropriete.html',
@@ -1096,6 +1342,7 @@ def copropriete(copro_id):
         civilites=civilites,
         assurance_contrat=assurance_contrat,
         honoraire_ligne=honoraire_ligne,
+        visites=visites,
     )
 
 @app.route('/coproprietaire/<int:coproprietaire_id>/delete', methods=['POST'])
@@ -1786,5 +2033,8 @@ if __name__ == '__main__':
 
         # Importer les honoraires depuis les données « Honoraire agate » (une fois)
         _importer_honoraires()
+
+        # Importer les visites depuis les données « Visites d'immeuble agate » (une fois)
+        _importer_visites()
 
     app.run(debug=True, host='0.0.0.0', port=5000)
