@@ -189,7 +189,7 @@
             </table>
         </div>
         <p class="text-muted small mt-2 mb-0">
-            <i class="fas fa-edit"></i> Cliquez sur une cellule ou sur le bouton <i class="fas fa-edit"></i> d'une ligne pour la modifier (dates JJ/MM/AAAA).
+            <i class="fas fa-edit"></i> Cliquez sur une cellule ou sur le bouton <i class="fas fa-edit"></i> d'une ligne pour la modifier (dates JJ/MM/AAAA). La saisie est sauvegardée automatiquement (Entrée ou clic ailleurs pour valider immédiatement).
             Cliquez sur un en-tête de colonne pour trier (1er clic : croissant ; 2e clic : décroissant ; tri par défaut : Date d'AG, la plus récente en haut).
             Ligne verte = Terminé ; case verte = Honoraires facturés ; <span class="texte-a-faire">A FAIRE</span> = devis à valider.
         </p>
@@ -217,6 +217,7 @@
                         <th>Type</th>
                         <th>Montant</th>
                         <th>Devis Validé</th>
+                        <th>OS</th>
                         <th>Nombre d'appels</th>
                     </tr>
                 </thead>
@@ -228,6 +229,7 @@
                         <td>{{ l.type or '' }}</td>
                         <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
                         <td class="text-center devis-a-valider-edit" data-champ="devis_valide" data-ligne-id="{{ l.id }}" title="Saisir la date ou le texte de validation du devis">{% if l.devis_a_faire %}<span class="texte-a-faire">A FAIRE</span>{% else %}{{ l.devis_valide or '' }}{% endif %}</td>
+                        <td class="text-center devis-a-valider-edit" data-champ="os" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier">{{ l.os or '' }}</td>
                         <td class="text-center">{{ l.nb_appels if l.nb_appels is not none }}</td>
                     </tr>
                     {% endfor %}
@@ -470,7 +472,12 @@
             input.focus();
             input.select();
 
+            var minuteur = null;
+            var sauvegardeEnCours = false;
             function sauvegarder() {
+                if (sauvegardeEnCours) return;
+                sauvegardeEnCours = true;
+                clearTimeout(minuteur);
                 const fd = new FormData();
                 fd.append('champ', champ);
                 fd.append('valeur', input.value.trim());
@@ -485,6 +492,11 @@
                 if (e.key === 'Escape') { window.location.reload(); }
             });
             input.addEventListener('blur', sauvegarder);
+            // Sauvegarde automatique 1 s après la fin de la saisie
+            input.addEventListener('input', function() {
+                clearTimeout(minuteur);
+                minuteur = setTimeout(sauvegarder, 1000);
+            });
         });
     });
 })();
