@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 
 {% block title %}Copropriété #{{ copropriete.numero }} - Copro Manager{% endblock %}
+{% block styles %}
+<style>
+    td.copro-travaux-edit {
+        cursor: pointer;
+    }
+    td.copro-travaux-edit:hover {
+        background-color: #e9ecef;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -399,13 +409,17 @@
 {% endif %}
 
 <!-- Travaux (issues du tableau « ADF Travaux AGATE », par N° de copro) -->
-{% if travaux %}
 <div class="card mb-4">
     <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
         <h3 class="mb-0"><i class="fas fa-tools"></i> Travaux ({{ travaux|length }})</h3>
-        <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" data-bs-target="#travauxCollapse" aria-expanded="false" aria-controls="travauxCollapse">
-            <i class="fas fa-eye"></i> Masquer / Afficher
-        </button>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addCoproTravauxModal">
+                <i class="fas fa-plus"></i> Ajouter une ligne
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" data-bs-target="#travauxCollapse" aria-expanded="false" aria-controls="travauxCollapse">
+                <i class="fas fa-eye"></i> Masquer / Afficher
+            </button>
+        </div>
     </div>
     <div class="collapse" id="travauxCollapse">
     <div class="card-body">
@@ -430,16 +444,16 @@
                 <tbody>
                     {% for l in travaux %}
                     <tr class="{% if l.statut == 'termine' %}table-success{% endif %}">
-                        <td class="text-center">{{ l.date_ag_str }}</td>
-                        <td>{{ l.type or '' }}</td>
-                        <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
-                        <td class="text-end">{{ '%0.2f'|format(l.honoraire) if l.honoraire is not none }}{{ ' €' if l.honoraire is not none }}</td>
+                        <td class="text-center copro-travaux-edit" data-champ="date_ag" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier (JJ/MM/AAAA)">{{ l.date_ag_str }}</td>
+                        <td class="copro-travaux-edit" data-champ="type" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier">{{ l.type or '' }}</td>
+                        <td class="text-end copro-travaux-edit" data-champ="montant" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier (0,00)">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
+                        <td class="text-end copro-travaux-edit" data-champ="honoraire" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier (0,00)">{{ '%0.2f'|format(l.honoraire) if l.honoraire is not none }}{{ ' €' if l.honoraire is not none }}</td>
                         <td class="text-center">
                             <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
                                 <input type="hidden" name="champ" value="honoraire_facture">
                                 <input type="hidden" name="from" value="copropriete">
                                 <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
-                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if l.honoraire_facture %}checked{% endif %}>
+                                <input type="checkbox" class="form-check-input" name="valeur" value="1" onchange="this.form.submit()" {% if l.honoraire_facture %}checked{% endif %}>
                             </form>
                         </td>
                         <td class="text-center">
@@ -464,10 +478,10 @@
                                 <button type="submit" class="btn btn-sm btn-outline-success" title="Sauvegarder les dates"><i class="fas fa-check"></i></button>
                             </form>
                         </td>
-                        <td class="text-center">{% if l.devis_a_faire %}<span class="text-danger fw-bold">A FAIRE</span>{% else %}{{ l.devis_valide or '—' }}{% endif %}</td>
-                        <td>{{ l.os or '' }}</td>
-                        <td>{{ l.facture or '' }}</td>
-                        <td class="text-center">{{ l.annee_cloture or '' }}</td>
+                        <td class="text-center copro-travaux-edit" data-champ="devis_valide" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier">{% if l.devis_a_faire %}<span class="text-danger fw-bold">A FAIRE</span>{% else %}{{ l.devis_valide or '' }}{% endif %}</td>
+                        <td class="copro-travaux-edit" data-champ="os" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier">{{ l.os or '' }}</td>
+                        <td class="copro-travaux-edit" data-champ="facture" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier">{{ l.facture or '' }}</td>
+                        <td class="text-center copro-travaux-edit" data-champ="annee_cloture" data-ligne-id="{{ l.id }}" title="Cliquez pour modifier">{{ l.annee_cloture or '' }}</td>
                         <td>
                             <form method="POST" action="{{ url_for('travaux_save_ligne', ligne_id=l.id) }}" class="d-inline">
                                 <input type="hidden" name="champ" value="statut">
@@ -482,11 +496,14 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    {% if not travaux %}
+                    <tr><td colspan="12" class="text-center text-muted">Aucune ligne de travaux pour cette copropriété. Utilisez « Ajouter une ligne ».</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
         <p class="text-muted mb-0">
-            Ligne verte = Terminé. Modifiez « Nombre d'appels » pour ouvrir les cases de dates correspondantes.
+            Ligne verte = Terminé. Cliquez sur une cellule pour la modifier. Modifiez « Nombre d'appels » pour ouvrir les cases de dates correspondantes.
             <a href="{{ url_for('travaux_page') }}" class="text-decoration-none">
                 <i class="fas fa-arrow-right"></i> Voir le tableau complet des travaux
             </a>
@@ -494,7 +511,6 @@
     </div>
     </div>
 </div>
-{% endif %}
 
 <!-- Visites d'immeuble (issues du tableau « Visites d'immeuble agate », par N° de copro) -->
 {% if visites %}
@@ -745,6 +761,42 @@
 {% endwith %}
 {% include 'demande_modal.html' %}
 
+<!-- Modal : ajout d'une ligne de travaux pour cette copropriété -->
+<div class="modal fade" id="addCoproTravauxModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('travaux_add_ligne') }}">
+                <input type="hidden" name="from" value="copropriete">
+                <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
+                <input type="hidden" name="numero" value="{{ copropriete.numero }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Ajouter une ligne de travaux</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">La ligne sera créée pour la copropriété n°{{ copropriete.numero }} et apparaîtra également dans l'onglet Travaux.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Date d'AG</label>
+                        <input type="date" class="form-control" name="date_ag">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <input type="text" class="form-control" name="type" placeholder="Ex: Toiture">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant (€)</label>
+                        <input type="text" class="form-control" name="montant" placeholder="Ex: 2409">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 // Affiche/masque le champ « Autre demandeur » dans les modales
 toggleDemandeurAutre = function(select) {
@@ -760,6 +812,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // Afficher le champ « Autre » si déjà sélectionné (édition)
     document.querySelectorAll('select[name="demandeur"]').forEach(function(sel){
         if (sel.value === '__autre__') toggleDemandeurAutre(sel);
+    });
+
+    // Édition inline des cellules travaux : clic -> champ -> sauvegarde
+    document.querySelectorAll('td.copro-travaux-edit').forEach(function(td) {
+        td.addEventListener('click', function() {
+            if (td.querySelector('input')) return;
+            const champ = td.getAttribute('data-champ');
+            const ligneId = td.getAttribute('data-ligne-id');
+            const courant = td.textContent.trim();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control form-control-sm';
+            input.value = courant;
+            if (champ === 'montant' || champ === 'honoraire') input.placeholder = '0,00';
+            else if (champ === 'date_ag') input.placeholder = 'JJ/MM/AAAA';
+            else if (champ === 'annee_cloture') input.placeholder = 'Ex: 2027';
+            td.textContent = '';
+            td.appendChild(input);
+            input.focus();
+            input.select();
+
+            function sauvegarder() {
+                const fd = new FormData();
+                fd.append('champ', champ);
+                fd.append('valeur', input.value.trim());
+                fd.append('from', 'copropriete');
+                fd.append('copro_id', '{{ copropriete.id }}');
+                fetch('/travaux/ligne/' + ligneId + '/save', { method: 'POST', body: fd })
+                    .then(function() { window.location.reload(); });
+            }
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); sauvegarder(); }
+                if (e.key === 'Escape') { window.location.reload(); }
+            });
+            input.addEventListener('blur', sauvegarder);
+        });
     });
 
     // Changement de suivi via boutons du tableau (AJAX)
