@@ -1399,10 +1399,12 @@ def travaux_page():
     aujourdhui = date.today()
     limite = aujourdhui - timedelta(days=62)
     suivi_devis = [l for l in ctx['lignes'] if l.devis_a_faire]
-    # Suivi comptable : une ligne par date d'appel (à venir ou ≤ 2 mois).
+    # Suivi comptable : une ligne par date d'appel, qu'elle soit faite ou
+    # non. La ligne ne disparaît qu'une fois la date d'appel antérieure
+    # de plus de deux mois à la date du jour.
     def _appel_a_suivre(ligne, appel):
         d = _date_fr_vers_iso(appel.date_appel)
-        return not appel.fait and d is not None and (limite <= d <= aujourdhui or d > aujourdhui)
+        return d is not None and d >= limite
 
     suivi_appels = []
     for l in ctx['lignes']:
@@ -1435,6 +1437,10 @@ def travaux_add_ligne():
     db.session.add(ligne)
     db.session.commit()
     flash(f'Ligne de travaux ajoutée pour la copropriété {numero}.', 'success')
+    if request.form.get('from') == 'copropriete':
+        copro_id = request.form.get('copro_id', type=int)
+        if copro_id:
+            return redirect(url_for('copropriete', copro_id=copro_id))
     return redirect(url_for('travaux_page'))
 
 

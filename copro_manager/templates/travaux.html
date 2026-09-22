@@ -28,8 +28,12 @@
     td.travaux-edit {
         cursor: pointer;
     }
-    td.travaux-edit:hover {
+    td.travaux-edit:hover,
+    td.devis-a-valider-edit:hover {
         background-color: #e9ecef;
+    }
+    td.devis-a-valider-edit {
+        cursor: pointer;
     }
     .ligne-terminee {
         background-color: #d1e7dd !important;
@@ -43,6 +47,13 @@
     }
     .ligne-faite {
         background-color: #d1e7dd !important;
+    }
+    .ligne-faite td {
+        text-decoration: line-through;
+    }
+    .ligne-faite td.text-center:last-child,
+    .ligne-faite td .form-check-input {
+        text-decoration: none;
     }
 </style>
 {% endblock %}
@@ -193,7 +204,7 @@
 <div class="card mb-4">
     <div class="card-header bg-light">
         <h3><i class="fas fa-exclamation-circle"></i> Devis à valider ({{ suivi_devis|length }})</h3>
-        <p class="text-muted small mb-0">Lignes dont le devis n'est pas encore validé alors que la date de l'appel de fonds le plus ancien est dépassée.</p>
+        <p class="text-muted small mb-0">Lignes dont le devis n'est pas encore validé alors que la date de l'appel de fonds le plus ancien est dépassée. Cliquez sur « A FAIRE » pour saisir la validation du devis (date ou texte).</p>
     </div>
     <div class="card-body">
         {% if suivi_devis %}
@@ -216,7 +227,7 @@
                         <td class="text-center">{{ l.date_ag_str }}</td>
                         <td>{{ l.type or '' }}</td>
                         <td class="text-end">{{ '%0.2f'|format(l.montant) if l.montant is not none }}{{ ' €' if l.montant is not none }}</td>
-                        <td class="text-center"><span class="texte-a-faire">A FAIRE</span></td>
+                        <td class="text-center devis-a-valider-edit" data-champ="devis_valide" data-ligne-id="{{ l.id }}" title="Saisir la date ou le texte de validation du devis">{% if l.devis_a_faire %}<span class="texte-a-faire">A FAIRE</span>{% else %}{{ l.devis_valide or '' }}{% endif %}</td>
                         <td class="text-center">{{ l.nb_appels if l.nb_appels is not none }}</td>
                     </tr>
                     {% endfor %}
@@ -233,7 +244,7 @@
 <div class="card mb-4">
     <div class="card-header bg-light">
         <h3><i class="fas fa-phone-volume"></i> Appels de fonds à faire — suivi comptable ({{ suivi_appels|length }})</h3>
-        <p class="text-muted small mb-0">Une ligne par date d'appel : à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé ; la ligne disparaît du tableau.</p>
+        <p class="text-muted small mb-0">Une ligne par date d'appel : à venir ou dont la date remonte à moins de deux mois. Cochez « Fait » une fois l'appel de fonds envoyé ; la ligne reste affichée (texte barré) et disparaît deux mois après la date de l'appel.</p>
     </div>
     <div class="card-body">
         {% if suivi_appels %}
@@ -442,7 +453,7 @@
     });
 
     // Édition inline : clic sur une cellule -> champ -> sauvegarde
-    document.querySelectorAll('td.travaux-edit').forEach(function(td) {
+    document.querySelectorAll('td.travaux-edit, td.devis-a-valider-edit').forEach(function(td) {
         td.addEventListener('click', function() {
             if (td.querySelector('input')) return;
             const champ = td.getAttribute('data-champ');
