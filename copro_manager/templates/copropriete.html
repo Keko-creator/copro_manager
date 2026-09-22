@@ -462,8 +462,8 @@
                                 <input type="hidden" name="from" value="copropriete">
                                 <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
                                 <div class="input-group input-group-sm" style="width: 90px;">
-                                    <input type="number" min="0" class="form-control" name="valeur" value="{{ l.nb_appels if l.nb_appels is not none }}">
-                                    <button type="submit" class="btn btn-outline-success"><i class="fas fa-check"></i></button>
+                                    <input type="number" min="0" class="form-control auto-submit" name="valeur" value="{{ l.nb_appels if l.nb_appels is not none }}">
+                                    <button type="submit" class="btn btn-outline-success" title="Sauvegarder"><i class="fas fa-check"></i></button>
                                 </div>
                             </form>
                         </td>
@@ -472,7 +472,7 @@
                                 <input type="hidden" name="from" value="copropriete">
                                 <input type="hidden" name="copro_id" value="{{ copropriete.id }}">
                                 {% for i in range(l.nb_appels or 0) %}
-                                <input type="text" class="form-control form-control-sm date-appel" style="width: 110px;"
+                                <input type="text" class="form-control form-control-sm date-appel auto-submit" style="width: 110px;"
                                        name="date_{{ i }}" value="{{ l.appels[i].date_appel if l.appels|length > i else '' }}" placeholder="JJ/MM/AAAA">
                                 {% endfor %}
                                 <button type="submit" class="btn btn-sm btn-outline-success" title="Sauvegarder les dates"><i class="fas fa-check"></i></button>
@@ -503,7 +503,7 @@
             </table>
         </div>
         <p class="text-muted mb-0">
-            Ligne verte = Terminé. Cliquez sur une cellule pour la modifier. Modifiez « Nombre d'appels » pour ouvrir les cases de dates correspondantes.
+            Ligne verte = Terminé. Cliquez sur une cellule pour la modifier ; la saisie est sauvegardée automatiquement. Modifiez « Nombre d'appels » pour ouvrir les cases de dates correspondantes.
             <a href="{{ url_for('travaux_page') }}" class="text-decoration-none">
                 <i class="fas fa-arrow-right"></i> Voir le tableau complet des travaux
             </a>
@@ -833,7 +833,12 @@ document.addEventListener('DOMContentLoaded', function() {
             input.focus();
             input.select();
 
+            var minuteur = null;
+            var sauvegardeEnCours = false;
             function sauvegarder() {
+                if (sauvegardeEnCours) return;
+                sauvegardeEnCours = true;
+                clearTimeout(minuteur);
                 const fd = new FormData();
                 fd.append('champ', champ);
                 fd.append('valeur', input.value.trim());
@@ -848,6 +853,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (e.key === 'Escape') { window.location.reload(); }
             });
             input.addEventListener('blur', sauvegarder);
+            // Sauvegarde automatique 1 s après la fin de la saisie
+            input.addEventListener('input', function() {
+                clearTimeout(minuteur);
+                minuteur = setTimeout(sauvegarder, 1000);
+            });
+        });
+    });
+
+    // Soumission automatique des champs marqués .auto-submit
+    // (Nombre d'appels, dates d'appels) : sauvegarde dès que la valeur
+    // change (Entrée, clic ailleurs) ou 1,5 s après la fin de la saisie.
+    document.querySelectorAll('input.auto-submit').forEach(function(champ) {
+        var minuteur = null;
+        var enCours = false;
+        function envoyer() {
+            if (enCours) return;
+            enCours = true;
+            champ.form.submit();
+        }
+        champ.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); envoyer(); }
+        });
+        champ.addEventListener('change', envoyer);
+        champ.addEventListener('input', function() {
+            clearTimeout(minuteur);
+            minuteur = setTimeout(envoyer, 1500);
         });
     });
 

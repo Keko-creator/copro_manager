@@ -84,6 +84,28 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
+    <!-- Mémorise l'état ouvert/fermé des tableaux dépliables (jusqu'à clic sur « Masquer ») -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-bs-toggle="collapse"][data-bs-target]').forEach(function(btn) {
+            if (btn.classList.contains('navbar-toggler')) return;
+            var cible = document.querySelector(btn.getAttribute('data-bs-target'));
+            if (!cible || !cible.id) return;
+            var cle = 'collapse_ouvert_' + cible.id;
+            if (sessionStorage.getItem(cle) === '1') {
+                cible.classList.add('show');
+                btn.setAttribute('aria-expanded', 'true');
+            }
+            cible.addEventListener('shown.bs.collapse', function() {
+                sessionStorage.setItem(cle, '1');
+            });
+            cible.addEventListener('hidden.bs.collapse', function() {
+                sessionStorage.removeItem(cle);
+            });
+        });
+    });
+    </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>
