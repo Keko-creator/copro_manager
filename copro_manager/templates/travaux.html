@@ -4,10 +4,21 @@
 <style>
     .travaux-scroll-wrapper {
         position: sticky;
-        top: 0;
+        top: 16px;
         max-height: calc(100vh - 140px);
         overflow: auto;
         border: 1px solid #dee2e6;
+    }
+    .travaux-top-scroll {
+        overflow-x: auto;
+        overflow-y: hidden;
+        height: 16px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+    }
+    .travaux-top-scroll > div {
+        height: 1px;
     }
     .travaux-scroll-wrapper thead th {
         position: sticky;
@@ -19,7 +30,7 @@
     .travaux-scroll-wrapper td {
         white-space: nowrap;
     }
-    .travaux-scroll-wrapper td input {
+    .travaux-scroll-wrapper td input:not([type="checkbox"]) {
         width: 100%;
         border: none;
         background: transparent;
@@ -35,8 +46,11 @@
     td.devis-a-valider-edit {
         cursor: pointer;
     }
-    .ligne-terminee {
+    tr.ligne-terminee > td {
         background-color: #d1e7dd !important;
+    }
+    tr.ligne-pret-ag > td {
+        background-color: #fff3cd !important;
     }
     .case-facture-verte {
         background-color: #d1e7dd !important;
@@ -45,7 +59,7 @@
         color: #dc3545;
         font-weight: bold;
     }
-    .ligne-faite {
+    tr.ligne-faite > td {
         background-color: #d1e7dd !important;
     }
     .ligne-faite td {
@@ -100,6 +114,7 @@
     <div class="collapse" id="travauxTableCollapse">
     <div class="card-body">
         {% if lignes %}
+        <div class="travaux-top-scroll" id="travauxTopScroll" title="Barre de défilement horizontal"><div></div></div>
         <div class="table-responsive travaux-scroll-wrapper">
             <table class="table table-sm table-bordered table-hover align-middle" id="travauxTable">
                 <thead class="table-dark">
@@ -124,7 +139,7 @@
                 </thead>
                 <tbody>
                     {% for l in lignes %}
-                    <tr class="travaux-row {% if l.statut == 'termine' %}ligne-terminee{% endif %}">
+                    <tr class="travaux-row {% if l.statut == 'termine' %}ligne-terminee{% elif l.statut == 'pret_ag' %}ligne-pret-ag{% endif %}">
                         <td class="fw-bold" data-sort-value="{{ l.numero }}">{{ l.numero }}</td>
                         <td class="travaux-edit" data-champ="fin_exercice" data-ligne-id="{{ l.id }}">{{ l.fin_exercice_str or '' }}</td>
                         <td class="travaux-edit" data-champ="date_ag" data-ligne-id="{{ l.id }}" data-sort-value="{{ l.date_ag.strftime('%Y%m%d') if l.date_ag else '' }}">{{ l.date_ag_str or '' }}</td>
@@ -191,7 +206,7 @@
         <p class="text-muted small mt-2 mb-0">
             <i class="fas fa-edit"></i> Cliquez sur une cellule ou sur le bouton <i class="fas fa-edit"></i> d'une ligne pour la modifier (dates JJ/MM/AAAA). La saisie est sauvegardée automatiquement (Entrée ou clic ailleurs pour valider immédiatement).
             Cliquez sur un en-tête de colonne pour trier (1er clic : croissant ; 2e clic : décroissant ; tri par défaut : Date d'AG, la plus récente en haut).
-            Ligne verte = Terminé ; case verte = Honoraires facturés ; <span class="texte-a-faire">A FAIRE</span> = devis à valider.
+            Ligne verte = Terminé ; ligne jaune claire = Prêt pour AG ; case verte = Honoraires facturés ; <span class="texte-a-faire">A FAIRE</span> = devis à valider.
         </p>
         {% else %}
         <div class="alert alert-info">Aucune ligne de travaux.</div>
@@ -351,6 +366,23 @@
 {% block scripts %}
 <script>
 (function() {
+    // Barre de défilement horizontal en haut du tableau, synchronisée
+    const wrapper = document.querySelector('.travaux-scroll-wrapper');
+    const topScroll = document.getElementById('travauxTopScroll');
+    if (wrapper && topScroll) {
+        const spacer = topScroll.querySelector('div');
+        function ajusterTopScroll() {
+            spacer.style.width = wrapper.scrollWidth + 'px';
+            topScroll.style.width = wrapper.clientWidth + 'px';
+            topScroll.scrollLeft = wrapper.scrollLeft;
+        }
+        topScroll.addEventListener('scroll', function() { wrapper.scrollLeft = topScroll.scrollLeft; });
+        wrapper.addEventListener('scroll', function() { topScroll.scrollLeft = wrapper.scrollLeft; });
+        window.addEventListener('resize', ajusterTopScroll);
+        window.addEventListener('load', ajusterTopScroll);
+        ajusterTopScroll();
+    }
+
     const search = document.getElementById('travauxSearch');
     const rows = document.querySelectorAll('#travauxTable tbody tr.travaux-row');
     if (search) {
