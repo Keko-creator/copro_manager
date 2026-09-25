@@ -11,3 +11,9 @@ env/
 # Python
 *.egg-info/
 .eggs/
+.env
+venv/
+sauvegardes/
+
+# Base de données locale (données saisies) : jamais versionnée
+copro_manager/instance/
