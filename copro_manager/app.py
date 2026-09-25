@@ -2508,5 +2508,3 @@ if __name__ == '__main__':
 
         # Importer les travaux depuis les données « ADF Travaux AGATE » (une fois)
         _importer_travaux()
-
-    app.run(debug=True, host='0.0.0.0', port=5000)

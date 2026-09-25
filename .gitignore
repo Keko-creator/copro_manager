@@ -11,3 +11,6 @@ env/
 # Python
 *.egg-info/
 .eggs/
+.env
+venv/
+sauvegardes/
