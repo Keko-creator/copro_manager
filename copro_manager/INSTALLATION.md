@@ -90,6 +90,10 @@ Ajouter la page aux favoris, ou épingler à la barre de tâches.
 
 ## 8. Mise à jour de l'application
 
+Voir **MISE_A_JOUR.md** : procédure détaillée qui ne risque pas les données saisies.
+
+Étapes abrégées :
+
 1. Arrêter la console du serveur (CTRL+C).
 2. Récupérer la nouvelle version du code (Git : `git pull`).
 3. Relancer `demarrer.bat`. La base de données et les sauvegardes ne sont pas

@@ -31,7 +31,7 @@ def initialiser_base():
                 copro = Copropriete(
                     numero=data["numero"],
                     nom=f"Copropriété {data['numero']}",
-                    date_mise_copro=parse_date(data["date_mise_copropriete"]),
+                    date_mise_copropriete=parse_date(data["date_mise_copropriete"]),
                     programme_neolia=data["programme_neolia"],
                     adresse=data["adresse"],
                     ville=data["ville"],
