@@ -11,6 +11,7 @@ from waitress import serve
 from app import (
     app, db, Copropriete, Civilite, COPROPRIETES_DATA, parse_date,
     _migrer_colonnes_coproprietaires, _migrer_coproprietaires,
+    _migrer_lots_categories,
     _importer_coproprietaires_excel, _importer_honoraires,
     _importer_visites, _importer_travaux,
 )
@@ -45,6 +46,7 @@ def initialiser_base():
             db.session.commit()
 
         _migrer_coproprietaires()
+        _migrer_lots_categories()
         _importer_coproprietaires_excel()
         _importer_honoraires()
         _importer_visites()

@@ -139,6 +139,8 @@ class LotCoproprietaire(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.String(50), nullable=False)
     nature = db.Column(db.String(100))
+    # 'P' = lot Principal, 'S' = lot Secondaire
+    categorie = db.Column(db.String(1))
     coproprietaire_id = db.Column(db.Integer, db.ForeignKey('coproprietaire.id'), nullable=False)
 
 class EmailCoproprietaire(db.Model):
@@ -386,9 +388,53 @@ def get_statistiques():
             'percentage': round((p.count / total_active) * 100, 1) if total_active > 0 else 0
         }
 
+    # Repartition par comptable (comme pour les gestionnaires)
+    stats_comptables = db.session.query(
+        Copropriete.comptable,
+        func.count(Copropriete.id).label('count'),
+        func.sum(Copropriete.nombre_logements).label('logements')
+    ).filter(
+        Copropriete.comptable.isnot(None),
+        Copropriete.comptable != '',
+        Copropriete.est_active == True
+    ).group_by(Copropriete.comptable).all()
+    comptables = {}
+    for k in stats_comptables:
+        comptables[k.comptable] = {
+            'count': k.count,
+            'logements': k.logements,
+            'percentage': round((k.count / total_active) * 100, 1) if total_active > 0 else 0
+        }
+
+    # Synthese des lots P/S (total, NEOLIA, tiers)
+    total_p = db.session.query(func.count(LotCoproprietaire.id)).filter(
+        LotCoproprietaire.categorie == 'P').scalar() or 0
+    total_s = db.session.query(func.count(LotCoproprietaire.id)).filter(
+        LotCoproprietaire.categorie == 'S').scalar() or 0
+    neolia_p = db.session.query(func.count(LotCoproprietaire.id)).filter(
+        LotCoproprietaire.categorie == 'P',
+        LotCoproprietaire.coproprietaire_id.in_(
+            db.session.query(Coproprietaire.id).filter(Coproprietaire.nom.ilike('NEOLIA'))
+        )).scalar() or 0
+    neolia_s = db.session.query(func.count(LotCoproprietaire.id)).filter(
+        LotCoproprietaire.categorie == 'S',
+        LotCoproprietaire.coproprietaire_id.in_(
+            db.session.query(Coproprietaire.id).filter(Coproprietaire.nom.ilike('NEOLIA'))
+        )).scalar() or 0
+    lots_ps = {
+        'total_p': total_p,
+        'total_s': total_s,
+        'neolia_p': neolia_p,
+        'neolia_s': neolia_s,
+        'tiers_p': total_p - neolia_p,
+        'tiers_s': total_s - neolia_s,
+    }
+
     return {
         'total_logements': total_logements,
         'gestionnaires': gestionnaires,
+        'comptables': comptables,
+        'lots_ps': lots_ps,
         'periodes': periodes,
         'total_active': total_active,
         'total_inactive': total_inactive
@@ -1082,6 +1128,15 @@ def _migrer_visite_lignes():
         colonnes = [c['name'] for c in db.inspect(conn).get_columns('visite_lignes')]
         if 'mise_copro' not in colonnes:
             conn.execute(db.text('ALTER TABLE visite_lignes ADD COLUMN mise_copro VARCHAR(20)'))
+
+
+def _migrer_lots_categories():
+    """Ajoute la colonne categorie (P/S) aux lots des bases crÃ©Ã©es avant son
+    introduction (db.create_all ne migre pas les tables existantes)."""
+    with db.engine.begin() as conn:
+        colonnes = [c['name'] for c in db.inspect(conn).get_columns('lots_coproprietaires')]
+        if 'categorie' not in colonnes:
+            conn.execute(db.text('ALTER TABLE lots_coproprietaires ADD COLUMN categorie VARCHAR(1)'))
 
 
 def _migrer_travaux_appels():
@@ -2257,8 +2312,11 @@ def save_coproprietaire():
             index = key.split('[')[1].split(']')[0]
             numero = request.form.get(f'lots[{index}][numero]')
             nature = request.form.get(f'lots[{index}][nature]', '')
+            categorie = request.form.get(f'lots[{index}][categorie]', '')
+            if categorie not in ('P', 'S'):
+                categorie = ''
             if numero:
-                lots_data.append({'numero': numero, 'nature': nature})
+                lots_data.append({'numero': numero, 'nature': nature, 'categorie': categorie})
 
     if not lots_data:
         flash("Au moins un lot est obligatoire.", "error")
@@ -2329,7 +2387,7 @@ def save_coproprietaire():
         cp.code_postal = request.form.get('code_postal')
         cp.ville = request.form.get('ville')
 
-        cp.lots = [LotCoproprietaire(numero=lot['numero'], nature=lot['nature']) for lot in lots_data]
+        cp.lots = [LotCoproprietaire(numero=lot['numero'], nature=lot['nature'], categorie=lot.get('categorie') or None) for lot in lots_data]
         cp.emails = [EmailCoproprietaire(value=email['value'], principal=email['principal']) for email in emails_data]
         cp.telephones = [TelephoneCoproprietaire(value=tel['value'], principal=tel['principal']) for tel in telephones_data]
 
@@ -2569,6 +2627,9 @@ if __name__ == '__main__':
 
         # Ajouter la colonne Conseil Syndical aux bases existantes
         _migrer_coproprietaires()
+
+        # Ajouter la colonne categorie (P/S) aux lots
+        _migrer_lots_categories()
 
         # Importer les copropriétaires depuis le fichier Excel (une fois)
         _importer_coproprietaires_excel()
