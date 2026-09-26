@@ -2,7 +2,7 @@
 rem ============================================
 rem  Copro Manager - demarrage du serveur
 rem  Journal detaille : demarrage.log
-rem  1er lancement : installe tout automatiquement
+rem  Premier lancement : installe tout automatiquement
 rem ============================================
 cd /d "%~dp0"
 set "LOG=%~dp0demarrage.log"
@@ -10,6 +10,7 @@ echo ===== Demarrage de Copro Manager ===== > "%LOG%"
 echo Date : %date% %time% >> "%LOG%"
 
 rem --- Etape 1 : trouver Python (py -3 ou python) ---
+echo Etape 1/5 : recherche de Python >> "%LOG%"
 set "PYCMD="
 py -3 -c "print('ok')" >> "%LOG%" 2>&1
 if not errorlevel 1 set "PYCMD=py -3"
@@ -33,6 +34,7 @@ if not defined PYCMD (
 echo Python trouve : %PYCMD% >> "%LOG%"
 
 rem --- Etape 2 : fichier .env ---
+echo Etape 2/5 : fichier .env >> "%LOG%"
 if not exist ".env" (
     if exist ".env.example" (
         copy /y ".env.example" ".env" >nul
@@ -47,10 +49,12 @@ if not exist ".env" (
         exit /b 1
     )
 )
+echo Fichier .env OK >> "%LOG%"
 
 rem --- Etape 3 : environnement Python local (venv) ---
+echo Etape 3/5 : environnement Python local >> "%LOG%"
 if not exist "venv\Scripts\python.exe" (
-    echo [INFO] Creation de l'environnement Python local (1er lancement)...
+    echo [INFO] Creation de l'environnement Python local. Patientez...
     %PYCMD% -m venv venv >> "%LOG%" 2>&1
     if not exist "venv\Scripts\python.exe" (
         echo [ERREUR] Creation du venv echouee >> "%LOG%"
@@ -61,12 +65,13 @@ if not exist "venv\Scripts\python.exe" (
         pause
         exit /b 1
     )
-    echo Venv cree >> "%LOG%"
 )
+echo Environnement Python OK >> "%LOG%"
 
 rem --- Etape 4 : dependances (une seule fois) ---
+echo Etape 4/5 : dependances Python >> "%LOG%"
 if not exist "venv\.dependances-installees" (
-    echo [INFO] Installation des dependances (quelques minutes)...
+    echo [INFO] Installation des dependances. Patientez quelques minutes...
     venv\Scripts\python -m pip install --upgrade pip >> "%LOG%" 2>&1
     venv\Scripts\pip install -r requirements.txt >> "%LOG%" 2>&1
     if errorlevel 1 (
@@ -79,10 +84,11 @@ if not exist "venv\.dependances-installees" (
         exit /b 1
     )
     echo ok > "venv\.dependances-installees"
-    echo Dependances installees >> "%LOG%"
 )
+echo Dependances OK >> "%LOG%"
 
-rem --- Etape 5 : serveur (sortie visible dans cette fenetre) ---
+rem --- Etape 5 : serveur ---
+echo Etape 5/5 : demarrage du serveur >> "%LOG%"
 echo.
 echo [INFO] Demarrage du serveur...
 echo [INFO] Acces : http://localhost:5000
