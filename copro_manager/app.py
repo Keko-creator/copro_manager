@@ -9,6 +9,8 @@ from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute C
 from honoraires_data import HONORAIRE_DATA
 from visites_data import ANNEES as VISITES_ANNEES, LIGNES as VISITES_LIGNES
 from travaux_data import LIGNES as TRAVAUX_LIGNES
+from assurance_data import ASSURANCE_COLONNES, ASSURANCE_LIGNES
+import json as _json_module
 
 # ========== CONFIGURATION ==========
 app = Flask(__name__)
@@ -437,6 +439,38 @@ def type_contrat_page(type_contrat):
     return redirect(url_for('contrats'))
 
 
+def _importer_assurance():
+    """Importe le tableau Assurance dans la base (une seule fois, si les
+    tables sont vides). Les données viennent de l'ancien fichier
+    « Assurance.xlsx », intégrées au logiciel : plus besoin du fichier."""
+    if AssuranceColonne.query.count() > 0 or AssuranceLigne.query.count() > 0:
+        return
+    colonnes = []
+    for c in ASSURANCE_COLONNES:
+        col = AssuranceColonne(
+            groupe=c['groupe'],
+            en_tete=c['en_tete'],
+            ordre=ASSURANCE_COLONNES.index(c),
+            formule=c['formule'],
+            formule_params=_json_module.dumps(c['formule_params']) if c['formule_params'] else None,
+        )
+        db.session.add(col)
+        colonnes.append(col)
+    db.session.flush()
+    ordre_ligne = 0
+    for l in ASSURANCE_LIGNES:
+        ligne = AssuranceLigne(ordre=ordre_ligne, est_total=l['est_total'])
+        db.session.add(ligne)
+        db.session.flush()
+        ordre_ligne += 1
+        for idx, valeur in l['valeurs'].items():
+            if int(idx) < len(colonnes):
+                db.session.add(AssuranceCellule(
+                    ligne_id=ligne.id, colonne_id=colonnes[int(idx)].id,
+                    valeur=valeur))
+    db.session.commit()
+
+
 def _assurance_context():
     """Construit le contexte de la page Assurance depuis la base."""
     colonnes = AssuranceColonne.query.order_by(AssuranceColonne.ordre).all()
@@ -492,6 +526,7 @@ def _assurance_context():
 def assurance_page():
     """Affiche le tableau de suivi tarifaire des contrats d'assurance,
     chargé depuis la base de données (modèle dynamique)."""
+    _importer_assurance()
     return render_template('assurance.html', **_assurance_context())
 
 
