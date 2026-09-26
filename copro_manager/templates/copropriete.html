@@ -258,7 +258,7 @@
                         <td>
                             {% if cp.lots %}
                                 {% for lot in cp.lots %}
-                                <div><strong>{{ lot.numero }}</strong>
+                                <div><strong>{{ lot.numero }}</strong>{% if lot.categorie %} <span class="badge bg-secondary">{{ lot.categorie }}</span>{% endif %}
                                 {% if lot.nature %}({{ lot.nature }}){% endif %}</div>
                                 {% endfor %}
                             {% else %}

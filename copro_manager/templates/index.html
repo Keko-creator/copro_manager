@@ -72,79 +72,6 @@
         </div>
 
         <div class="row">
-            {% if stats.comptables %}
-            <div class="col-md-6">
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h3><i class="fas fa-calculator"></i> Répartition par Comptable</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Comptable</th>
-                                        <th>Nombre</th>
-                                        <th>Logements</th>
-                                        <th>%</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for comptable, data in stats.comptables.items() %}
-                                    <tr>
-                                        <td>{{ comptable }}</td>
-                                        <td>{{ data.count }}</td>
-                                        <td>{{ data.logements }}</td>
-                                        <td>{{ data.percentage }}%</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            <div class="col-md-6">
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h3><i class="fas fa-key"></i> Répartition des Lots Principaux / Secondaires</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th></th>
-                                        <th>Lots "P"</th>
-                                        <th>Lots "S"</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Nombre de lots au total</td>
-                                        <td>{{ stats.lots_ps.total_p }}</td>
-                                        <td>{{ stats.lots_ps.total_s }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Copropriétaire NEOLIA</td>
-                                        <td>{{ stats.lots_ps.neolia_p }}</td>
-                                        <td>{{ stats.lots_ps.neolia_s }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Copropriétaires tiers</td>
-                                        <td>{{ stats.lots_ps.tiers_p }}</td>
-                                        <td>{{ stats.lots_ps.tiers_s }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% if stats.gestionnaires %}
-        <div class="row">
             <div class="col-md-6">
                 <div class="card mb-3">
                     <div class="card-header">
@@ -206,7 +133,79 @@
                 </div>
             </div>
         </div>
-        {% endif %}
+        {% if stats.comptables %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3><i class="fas fa-calculator"></i> Répartition par Comptable</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Comptable</th>
+                                        <th>Nombre</th>
+                                        <th>Logements</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comptable, data in stats.comptables.items() %}
+                                    <tr>
+                                        <td>{{ comptable }}</td>
+                                        <td>{{ data.count }}</td>
+                                        <td>{{ data.logements }}</td>
+                                        <td>{{ data.percentage }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3><i class="fas fa-key"></i> Répartition des Lots Principaux / Secondaires</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Lots "P"</th>
+                                        <th>Lots "S"</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Nombre de lots au total</td>
+                                        <td>{{ stats.lots_ps.total_p }}</td>
+                                        <td>{{ stats.lots_ps.total_s }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Copropriétaire NEOLIA</td>
+                                        <td>{{ stats.lots_ps.neolia_p }}</td>
+                                        <td>{{ stats.lots_ps.neolia_s }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Copropriétaires Tiers</td>
+                                        <td>{{ stats.lots_ps.tiers_p }}</td>
+                                        <td>{{ stats.lots_ps.tiers_s }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 {% endblock %}
