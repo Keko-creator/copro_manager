@@ -428,6 +428,10 @@ def get_statistiques():
         'neolia_s': neolia_s,
         'tiers_p': total_p - neolia_p,
         'tiers_s': total_s - neolia_s,
+        'neolia_p_pct': round(neolia_p / total_p * 100, 1) if total_p else 0,
+        'neolia_s_pct': round(neolia_s / total_s * 100, 1) if total_s else 0,
+        'tiers_p_pct': round((total_p - neolia_p) / total_p * 100, 1) if total_p else 0,
+        'tiers_s_pct': round((total_s - neolia_s) / total_s * 100, 1) if total_s else 0,
     }
 
     return {
@@ -837,6 +841,23 @@ def _fmt_euro(valeur):
 @app.template_filter('euro')
 def _euro_filter(valeur):
     return _fmt_euro(valeur)
+
+
+@app.template_filter('euro_entete')
+def _euro_entete_filter(en_tete):
+    """Ajoute le symbole euro aux en-tetes de colonnes montants (Tarif, Prix,
+    Cotisation) du tableau Assurance, sauf si l'en-tete contient deja l'euro
+    ou un prix au m2 (deja en /m2)."""
+    if not en_tete:
+        return en_tete
+    texte = str(en_tete)
+    if '€' in texte:
+        return texte
+    if 'Prix au m' in texte:
+        return texte
+    if any(mot in texte for mot in ('Tarif', 'Prix', 'Cotisation')):
+        return texte + ' (€)'
+    return texte
 
 
 @app.template_filter('fin_contrat_courte')
