@@ -9,6 +9,9 @@ from database import COPROPRIETES_DATA, db, Copropriete, Civilite # <-- Ajoute C
 from honoraires_data import HONORAIRE_DATA
 from visites_data import ANNEES as VISITES_ANNEES, LIGNES as VISITES_LIGNES
 from travaux_data import LIGNES as TRAVAUX_LIGNES
+from assurance_data import ASSURANCE_COLONNES, ASSURANCE_LIGNES
+from coproprietaires_data import COPROPRIETAIRES_EXCEL_DATA
+import json as _json_module
 
 # ========== CONFIGURATION ==========
 app = Flask(__name__)
@@ -437,6 +440,38 @@ def type_contrat_page(type_contrat):
     return redirect(url_for('contrats'))
 
 
+def _importer_assurance():
+    """Importe le tableau Assurance dans la base (une seule fois, si les
+    tables sont vides). Les données viennent de l'ancien fichier
+    « Assurance.xlsx », intégrées au logiciel : plus besoin du fichier."""
+    if AssuranceColonne.query.count() > 0 or AssuranceLigne.query.count() > 0:
+        return
+    colonnes = []
+    for c in ASSURANCE_COLONNES:
+        col = AssuranceColonne(
+            groupe=c['groupe'],
+            en_tete=c['en_tete'],
+            ordre=ASSURANCE_COLONNES.index(c),
+            formule=c['formule'],
+            formule_params=_json_module.dumps(c['formule_params']) if c['formule_params'] else None,
+        )
+        db.session.add(col)
+        colonnes.append(col)
+    db.session.flush()
+    ordre_ligne = 0
+    for l in ASSURANCE_LIGNES:
+        ligne = AssuranceLigne(ordre=ordre_ligne, est_total=l['est_total'])
+        db.session.add(ligne)
+        db.session.flush()
+        ordre_ligne += 1
+        for idx, valeur in l['valeurs'].items():
+            if int(idx) < len(colonnes):
+                db.session.add(AssuranceCellule(
+                    ligne_id=ligne.id, colonne_id=colonnes[int(idx)].id,
+                    valeur=valeur))
+    db.session.commit()
+
+
 def _assurance_context():
     """Construit le contexte de la page Assurance depuis la base."""
     colonnes = AssuranceColonne.query.order_by(AssuranceColonne.ordre).all()
@@ -492,6 +527,7 @@ def _assurance_context():
 def assurance_page():
     """Affiche le tableau de suivi tarifaire des contrats d'assurance,
     chargé depuis la base de données (modèle dynamique)."""
+    _importer_assurance()
     return render_template('assurance.html', **_assurance_context())
 
 
@@ -2394,63 +2430,33 @@ def _migrer_colonnes_coproprietaires():
 
 
 def _importer_coproprietaires_excel():
-    """Importe les copropriétaires du fichier Copropriétaires.xlsx (une
-    seule fois, si la table est vide). Associe chaque ligne à la copropriété
-    dont le numéro correspond à la colonne « N° de copro ».
-    """
-    import openpyxl
+    """Importe les copropriétaires initiaux (une seule fois, si la table
+    est vide). Les données de l'ancien fichier « Copropriétaires.xlsx »
+    sont intégrées au logiciel (coproprietaires_data.py) : plus besoin du
+    fichier Excel."""
     if Coproprietaire.query.count() > 0:
         return
-    chemin = os.path.join(os.path.dirname(__file__), 'Copropriétaires.xlsx')
-    if not os.path.exists(chemin):
-        return
-    try:
-        wb = openpyxl.load_workbook(chemin, data_only=True, read_only=True)
-    except Exception as e:
-        app.logger.warning(f"Impossible de lire Copropriétaires.xlsx : {e}")
-        return
-    ws = wb.active
-    rows = ws.iter_rows(values_only=True)
-    headers = next(rows, None)
-    if not headers:
-        return
-    idx = {h: i for i, h in enumerate(headers) if h}
 
     copros = {c.numero: c for c in Copropriete.query.all()}
     civilites = {c.libelle: c for c in Civilite.query.all()}
 
-    def val(row, name):
-        i = idx.get(name)
-        if i is None or i >= len(row):
-            return None
-        v = row[i]
-        return None if v is None else str(v).strip()
-
     nb = 0
-    for row in rows:
-        numero_copro = val(row, 'N° de copro')
-        if not numero_copro:
-            continue
-        try:
-            numero_copro = int(float(numero_copro))
-        except (ValueError, TypeError):
-            continue
-        copro = copros.get(numero_copro)
+    for d in COPROPRIETAIRES_EXCEL_DATA:
+        copro = copros.get(d['numero_copro'])
         if not copro:
             continue
-        civilite_lib = val(row, 'Civilité')
-        civilite = civilites.get(civilite_lib) if civilite_lib else None
-        lots_str = val(row, 'Lots') or ''
+        civilite = civilites.get(d['civilite']) if d['civilite'] else None
+        lots_str = d['lots'] or ''
         cp = Coproprietaire(
             copropriete_id=copro.id,
             civilite_id=civilite.id if civilite else None,
-            nom=val(row, 'Nom'),
-            prenom=val(row, 'Prénom'),
-            adresse=val(row, 'Adresse'),
-            code_postal=str(val(row, 'Code postal')) if val(row, 'Code postal') else None,
-            ville=val(row, 'Ville'),
-            telephone=val(row, 'Téléphones Principal'),
-            email=val(row, 'Emails Principal'),
+            nom=d['nom'],
+            prenom=d['prenom'],
+            adresse=d['adresse'],
+            code_postal=str(d['code_postal']) if d['code_postal'] else None,
+            ville=d['ville'],
+            telephone=d['telephone'],
+            email=d['email'],
         )
         premier_lot = next((p.strip() for p in lots_str.replace(';', ',').split(',') if p.strip()), None)
         if premier_lot and premier_lot.upper() != 'NC':
@@ -2459,7 +2465,7 @@ def _importer_coproprietaires_excel():
         nb += 1
     db.session.commit()
     if nb:
-        app.logger.info(f"{nb} copropriétaires importés depuis Copropriétaires.xlsx")
+        app.logger.info(f"{nb} copropriétaires importés depuis les données intégrées")
 
 
 # ========== MAIN ==========
