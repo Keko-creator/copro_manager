@@ -126,8 +126,15 @@
                   <div class="col-md-5">
                     <input type="text" class="form-control" name="lots[0][numero]" placeholder="N° lot" required>
                   </div>
-                  <div class="col-md-5">
+                  <div class="col-md-4">
                     <input type="text" class="form-control" name="lots[0][nature]" placeholder="Nature lot">
+                  </div>
+                  <div class="col-md-1">
+                    <select class="form-select" name="lots[0][categorie]">
+                      <option value="">-</option>
+                      <option value="P">P</option>
+                      <option value="S">S</option>
+                    </select>
                   </div>
                   <div class="col-md-2">
                     <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
@@ -488,8 +495,15 @@
                     <div class="col-md-5">
                       <input type="text" class="form-control" name="lots[{{ loop.index0 }}][numero]" value="{{ lot.numero }}" placeholder="N° lot" required>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                       <input type="text" class="form-control" name="lots[{{ loop.index0 }}][nature]" value="{{ lot.nature or '' }}" placeholder="Nature lot">
+                    </div>
+                    <div class="col-md-1">
+                      <select class="form-select" name="lots[{{ loop.index0 }}][categorie]">
+                        <option value="" {% if not lot.categorie %}selected{% endif %}>-</option>
+                        <option value="P" {% if lot.categorie == 'P' %}selected{% endif %}>P</option>
+                        <option value="S" {% if lot.categorie == 'S' %}selected{% endif %}>S</option>
+                      </select>
                     </div>
                     <div class="col-md-2">
                       <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
@@ -501,8 +515,15 @@
                     <div class="col-md-5">
                       <input type="text" class="form-control" name="lots[0][numero]" value="{{ cp.numero_lot or '' }}" placeholder="N° lot" required>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                       <input type="text" class="form-control" name="lots[0][nature]" value="{{ cp.nature_lot or '' }}" placeholder="Nature lot">
+                    </div>
+                    <div class="col-md-1">
+                      <select class="form-select" name="lots[0][categorie]">
+                        <option value="">-</option>
+                        <option value="P">P</option>
+                        <option value="S">S</option>
+                      </select>
                     </div>
                     <div class="col-md-2">
                       <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
@@ -801,8 +822,15 @@ function addLotRow(containerId) {
         <div class="col-md-5">
             <input type="text" class="form-control" name="lots[${newIndex}][numero]" placeholder="N° lot" required>
         </div>
-        <div class="col-md-5">
+        <div class="col-md-4">
             <input type="text" class="form-control" name="lots[${newIndex}][nature]" placeholder="Nature lot">
+        </div>
+        <div class="col-md-1">
+            <select class="form-select" name="lots[${newIndex}][categorie]">
+              <option value="">-</option>
+              <option value="P">P</option>
+              <option value="S">S</option>
+            </select>
         </div>
         <div class="col-md-2">
             <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
