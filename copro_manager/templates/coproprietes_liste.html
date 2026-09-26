@@ -15,6 +15,7 @@
                     <option value="tout" {% if search_type == 'tout' %}selected{% endif %}>Tous les champs</option>
                     <option value="ville" {% if search_type == 'ville' %}selected{% endif %}>Ville</option>
                     <option value="gestionnaire" {% if search_type == 'gestionnaire' %}selected{% endif %}>Gestionnaire</option>
+                    <option value="comptable" {% if search_type == 'comptable' %}selected{% endif %}>Comptable</option>
                     <option value="immatriculation" {% if search_type == 'immatriculation' %}selected{% endif %}>Immatriculation</option>
                 </select>
             </div>
@@ -26,6 +27,11 @@
             <div class="col-md-3">
                 <a href="{{ url_for('new_copropriete') }}" class="btn btn-success w-100">
                     <i class="fas fa-plus"></i> Nouvelle Copropriété
+                </a>
+            </div>
+            <div class="col-md-12 mt-2">
+                <a href="{{ url_for('coproprietes_export') }}" class="btn btn-outline-success">
+                    <i class="fas fa-file-excel"></i> Exporter la liste (Excel)
                 </a>
             </div>
         </form>
@@ -45,6 +51,7 @@
                         <th>Adresse</th>
                         <th>Ville</th>
                         <th>Gestionnaire</th>
+                        <th>Comptable</th>
                         <th>Logements</th>
                         <th>Immatriculation</th>
                         <th>Statut</th>
@@ -59,6 +66,7 @@
                         <td>{{ copropriete.adresse }}</td>
                         <td>{{ copropriete.ville }}</td>
                         <td>{{ copropriete.gestionnaire or 'N/C' }}</td>
+                        <td>{{ copropriete.comptable or 'N/C' }}</td>
                         <td>{{ copropriete.nombre_logements or 0 }}</td>
                         <td>{{ copropriete.immatriculation or 'N/C' }}</td>
                         <td>

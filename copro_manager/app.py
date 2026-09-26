@@ -1704,11 +1704,78 @@ def coproprietes_liste():
             query = query.filter(Copropriete.ville.ilike(f'%{search_query}%'))
         elif search_type == 'gestionnaire':
             query = query.filter(Copropriete.gestionnaire.ilike(f'%{search_query}%'))
+        elif search_type == 'comptable':
+            query = query.filter(Copropriete.comptable.ilike(f'%{search_query}%'))
         elif search_type == 'immatriculation':
             query = query.filter(Copropriete.immatriculation.ilike(f'%{search_query}%'))
 
     coproprietes = query.all()
     return render_template('coproprietes_liste.html', coproprietes=coproprietes, search_query=search_query, search_type=search_type)
+
+
+@app.route('/coproprietes/export', endpoint='coproprietes_export')
+def coproprietes_export():
+    """Exporte la liste des copropriétés en Excel (.xlsx)."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    coproprietes = Copropriete.query.order_by(Copropriete.numero).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Copropriétés"
+
+    headers = [
+        'N°', 'Nom', 'Adresse', 'Ville', 'Gestionnaire', 'Comptable',
+        'Logements', 'Immatriculation', 'Statut',
+    ]
+    gras_blanc = Font(bold=True, color="FFFFFF")
+    fond = PatternFill(start_color="212529", end_color="212529", fill_type="solid")
+    bordure = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"))
+    centre = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for c_idx, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=c_idx, value=h)
+        cell.font = gras_blanc
+        cell.fill = fond
+        cell.alignment = centre
+        cell.border = bordure
+
+    ligne_excel = 2
+    for copro in coproprietes:
+        valeurs = [
+            copro.numero,
+            copro.nom or '',
+            copro.adresse or '',
+            copro.ville or '',
+            copro.gestionnaire or '',
+            copro.comptable or '',
+            copro.nombre_logements,
+            copro.immatriculation or '',
+            'Active' if copro.est_active else 'Inactive',
+        ]
+        for c_idx, v in enumerate(valeurs, start=1):
+            cell = ws.cell(row=ligne_excel, column=c_idx, value=v)
+            cell.border = bordure
+        ligne_excel += 1
+
+    largeurs = [6, 30, 35, 20, 14, 20, 11, 18, 11]
+    for c_idx, largeur in enumerate(largeurs, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(c_idx)].width = largeur
+    ws.freeze_panes = "A2"
+
+    nom_fichier = f"coproprietes_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    tampon.seek(0)
+    return send_file(
+        tampon,
+        as_attachment=True,
+        download_name=nom_fichier,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 def _assurance_pour_copropriete(numero):
     """Récupère les données du contrat d'assurance d'une copropriété.
