@@ -118,7 +118,7 @@
                         <td>{{ cp.prenom or '' }}</td>
                         <td>
                             {% if cp.lots %}
-                                {% for lot in cp.lots %}<div>{{ lot.numero }}{% if lot.nature %} <span class="text-muted">({{ lot.nature }})</span>{% endif %}</div>{% endfor %}
+                                {% for lot in cp.lots %}<div>{{ lot.numero }}{% if lot.categorie %} <span class="badge bg-secondary">{{ lot.categorie }}</span>{% endif %}{% if lot.nature %} <span class="text-muted">({{ lot.nature }})</span>{% endif %}</div>{% endfor %}
                             {% else %}
                                 {{ cp.numero_lot or 'NC' }}
                             {% endif %}
@@ -272,8 +272,15 @@
                   <div class="col-md-5">
                     <input type="text" class="form-control" name="lots[0][numero]" placeholder="N° lot" required>
                   </div>
-                  <div class="col-md-5">
+                  <div class="col-md-4">
                     <input type="text" class="form-control" name="lots[0][nature]" placeholder="Nature lot">
+                  </div>
+                  <div class="col-md-1">
+                    <select class="form-select" name="lots[0][categorie]">
+                      <option value="">-</option>
+                      <option value="P">P</option>
+                      <option value="S">S</option>
+                    </select>
                   </div>
                   <div class="col-md-2">
                     <button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button>
@@ -412,7 +419,8 @@ function globalAddRow(containerId, kind) {
     } else if (kind === 'lot') {
         html = '<div class="row lot-row mb-2">' +
           '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][numero]" placeholder="N° lot"></div>' +
-          '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][nature]" placeholder="Nature lot"></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control" name="lots['+i+'][nature]" placeholder="Nature lot"></div>' +
+          '<div class="col-md-1"><select class="form-select" name="lots['+i+'][categorie]"><option value="">-</option><option value="P">P</option><option value="S">S</option></select></div>' +
           '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
           '</div>';
     } else if (kind === 'email') {
@@ -516,7 +524,8 @@ function editAddRow(container, kind, cpId) {
     } else if (kind === 'lot') {
         html = '<div class="row lot-row mb-2">' +
           '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][numero]" placeholder="N° lot"></div>' +
-          '<div class="col-md-5"><input type="text" class="form-control" name="lots['+i+'][nature]" placeholder="Nature lot"></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control" name="lots['+i+'][nature]" placeholder="Nature lot"></div>' +
+          '<div class="col-md-1"><select class="form-select" name="lots['+i+'][categorie]"><option value="">-</option><option value="P">P</option><option value="S">S</option></select></div>' +
           '<div class="col-md-2"><button type="button" class="btn btn-sm btn-danger remove-row-btn w-100">×</button></div>' +
           '</div>';
     } else if (kind === 'email') {
