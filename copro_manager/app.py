@@ -860,6 +860,24 @@ def _euro_entete_filter(en_tete):
     return texte
 
 
+@app.template_filter('euro_valeur')
+def _euro_valeur_filter(valeur):
+    """Ajoute l'euro aux montants du tableau Assurance : si la valeur de la
+    cellule est un nombre (avec virgule, espace ou point), elle est affichee
+    suivie de l'euro. Les dates et textes restent inchanges."""
+    if valeur is None:
+        return valeur
+    texte = str(valeur).strip()
+    if not texte:
+        return valeur
+    nettoye = texte.replace(' ', '').replace(',', '.').replace(u'\u20ac', '')
+    try:
+        float(nettoye)
+    except (ValueError, TypeError):
+        return valeur
+    return texte + ' €'
+
+
 @app.template_filter('fin_contrat_courte')
 def _fin_contrat_courte_filter(valeur):
     """Affiche une date de fin de contrat au format court « 30 juin » / « 31 déc. »."""
