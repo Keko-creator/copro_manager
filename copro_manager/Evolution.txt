@@ -1,8 +1,0 @@
-04/09 :Ajout de FLASH MIGRATE.  
-05/09 :Travail sur la fiche copropriétaire. 
-06/09 : ajout bouton supprimer et les 73 copros. 
-07/09 : ajout bouton pour modifier les informations générales des copropriétés. 
-
-A faire : ajouter comptable sur 1er page et en statistiques
-
-Bug sur Civilité + ajoute Monsieur et Madame
