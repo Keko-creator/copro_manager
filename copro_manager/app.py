@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file
+from flask import Flask, render_template, request, session, redirect, url_for, flash, send_from_directory, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 import io
@@ -25,6 +25,41 @@ db = SQLAlchemy(app)
 @app.context_processor
 def inject_models():
     return dict(Civilite=Civilite)
+
+# ========== AUTHENTIFICATION ==========
+# Mot de passe de l'application : fournir la variable d'environnement APP_PASSWORD_HASH,
+# générée avec :
+#   python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('TON_MOT_DE_PASSE'))"
+# Si APP_PASSWORD_HASH est absente ou vide, l'application reste libre d'accès
+# (comportement d'origine, utile en usage purement local).
+APP_PASSWORD_HASH = os.environ.get('APP_PASSWORD_HASH', '')
+
+@app.before_request
+def require_login():
+    if not APP_PASSWORD_HASH:
+        return None  # aucun mot de passe configuré : accès libre (mode local)
+    if session.get('authenticated'):
+        return None
+    if (request.endpoint or '') in ('login', 'logout', 'static'):
+        return None
+    return redirect(url_for('login', next=request.path))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        from werkzeug.security import check_password_hash
+        if check_password_hash(APP_PASSWORD_HASH, request.form.get('password', '')):
+            session.permanent = True
+            session['authenticated'] = True
+            return redirect(request.args.get('next') or url_for('index'))
+        error = 'Mot de passe incorrect.'
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
